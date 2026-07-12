@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SiNilai – Sistem Informasi Nilai Mahasiswa</title>
+  <meta name="description" content="Sistem penginputan dan pengelolaan nilai mahasiswa dengan kalkulasi IPK dan IPS otomatis berbasis Google Sheets." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ===================== SIDEBAR ===================== -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="40" height="40" rx="12" fill="url(#grad1)"/>
+          <path d="M12 28L20 12L28 28" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M14.5 23H25.5" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+          <defs>
+            <linearGradient id="grad1" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#7c6ff7"/>
+              <stop offset="1" stop-color="#3ecfcf"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <div>
+        <span class="logo-name">SiNilai</span>
+        <span class="logo-sub">Sistem Informasi Nilai</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button class="nav-item active" onclick="showTab('dashboard')" id="nav-dashboard">
+        <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/><rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/></svg>
+        Dashboard
+      </button>
+      <button class="nav-item" onclick="showTab('input')" id="nav-input">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        Input Nilai
+      </button>
+      <button class="nav-item" onclick="showTab('riwayat')" id="nav-riwayat">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="9" y="3" width="6" height="4" rx="1" stroke="currentColor" stroke-width="2"/><path d="M9 12h6M9 16h4" stroke="currentColor" stroke-linecap="round" stroke-width="2"/></svg>
+        Riwayat Nilai
+      </button>
+      <button class="nav-item" onclick="showTab('mahasiswa')" id="nav-mahasiswa">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2"/></svg>
+        Profil Mahasiswa
+      </button>
+
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="theme-toggle" onclick="toggleTheme()" title="Ganti tema">
+        <svg id="theme-icon" viewBox="0 0 24 24" fill="none"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span id="theme-label">Mode Terang</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===================== MAIN CONTENT ===================== -->
+  <main class="main-content" id="main-content">
+
+    <button class="hamburger" id="hamburger" onclick="toggleSidebar()">
+      <span></span><span></span><span></span>
+    </button>
+
+    <!-- ======== DASHBOARD TAB ======== -->
+    <section class="tab-section active" id="tab-dashboard">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Dashboard</h1>
+          <p class="page-subtitle">Selamat datang di SiNilai – pantau nilai mahasiswa dengan mudah</p>
+        </div>
+        <button class="btn-primary" onclick="showTab('input')">
+          <svg viewBox="0 0 24 24" fill="none" width="18" height="18"><path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+          Input Nilai Baru
+        </button>
+      </div>
+
+      <div class="card" style="margin-bottom: 20px;">
+        <div class="card-header" style="margin-bottom: 12px;">
+          <h2 class="card-title">Koneksi Database (Google Sheets)</h2>
+          <button class="btn-outline" type="button" onclick="saveApiUrl()">Simpan & Tes</button>
+        </div>
+        <div class="url-input-row">
+          <input
+            type="text"
+            id="api-url-input"
+            placeholder="Tempel URL Apps Script…"
+            value="https://script.google.com/macros/s/AKfycbxBumno3C-2w8wbTcFkniUJ9XBmIzp3bYKaTqLgZPmTf3GXdhgNsVPId09lQDrfLRw1aA/exec"
+          />
+        </div>
+        <div id="connection-status" class="conn-status" style="margin-top: 10px;">Siap menghubungkan…</div>
+        <div style="color: var(--text-muted); font-size: 0.82rem; margin-top: 8px; line-height: 1.6;">
+          Pastikan Apps Script di-deploy dengan akses <strong>Anyone</strong>.
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon" style="background: linear-gradient(135deg,#7c6ff7,#a78bfa)">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="white" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="white" stroke-width="2"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>
+          </div>
+          <div>
+            <div class="stat-value" id="stat-total">0</div>
+            <div class="stat-label">Total Mahasiswa</div>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon" style="background: linear-gradient(135deg,#f59e0b,#f97316)">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div>
+            <div class="stat-value" id="stat-tertinggi">0</div>
+            <div class="stat-label">Nilai Tertinggi</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background: linear-gradient(135deg,#f87171,#ec4899)">
+            <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="white" stroke-width="2"/><path d="M12 8v4M12 16h.01" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>
+          </div>
+          <div>
+            <div class="stat-value" id="stat-mk">0</div>
+            <div class="stat-label">Total Mata Kuliah</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Entri Terbaru</h2>
+          <button class="btn-outline" onclick="showTab('riwayat')">Lihat Semua</button>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table" id="recent-table">
+            <thead>
+              <tr>
+                <th>Nama Mahasiswa</th>
+                <th>NIM</th>
+                <th>Mata Kuliah</th>
+                <th>Quiz</th>
+                <th>UTS</th>
+                <th>UAS</th>
+                <th>Nilai Akhir</th>
+                <th>Huruf</th>
+              </tr>
+            </thead>
+            <tbody id="recent-tbody">
+              <tr class="empty-row"><td colspan="8">Belum ada data. <a href="#" onclick="showTab('input');return false;">Input nilai pertama →</a></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== INPUT TAB ======== -->
+    <section class="tab-section" id="tab-input">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Input Nilai</h1>
+          <p class="page-subtitle">Masukkan data mahasiswa dan nilai per mata kuliah</p>
+        </div>
+      </div>
+
+      <div class="form-layout">
+        <!-- LEFT: Form -->
+        <div class="form-container">
+          <form id="grade-form" onsubmit="submitGrade(event)">
+
+            <!-- Step 1: Data Mahasiswa -->
+            <div class="form-section">
+              <div class="form-section-header">
+                <div class="step-badge">1</div>
+                <div>
+                  <h3>Data Mahasiswa</h3>
+                  <p>Identitas mahasiswa (Ketik untuk mencari otomatis dari riwayat)</p>
+                </div>
+              </div>
+              <div class="form-grid">
+                <div class="form-group autocomplete-wrapper">
+                  <label for="f-nama">Nama Lengkap <span class="req">*</span></label>
+                  <input type="text" id="f-nama" placeholder="Contoh: Budi Santoso" required autocomplete="off" oninput="handleInputSearch('nama'); updatePreview()" onfocus="handleInputSearch('nama')"/>
+                  <ul class="autocomplete-list" id="auto-nama"></ul>
+                </div>
+                <div class="form-group autocomplete-wrapper">
+                  <label for="f-nim">NIM <span class="req">*</span></label>
+                  <input type="text" id="f-nim" placeholder="Contoh: 2021001001" required autocomplete="off" oninput="handleInputSearch('nim'); updatePreview()" onfocus="handleInputSearch('nim')"/>
+                  <ul class="autocomplete-list" id="auto-nim"></ul>
+                </div>
+                <div class="form-group">
+                  <label for="f-semester">Semester <span class="req">*</span></label>
+                  <select id="f-semester" required onchange="updatePreview()">
+                    <option value="">-- Pilih Semester --</option>
+                    <option value="1">Semester 1</option>
+                    <option value="2">Semester 2</option>
+                    <option value="3">Semester 3</option>
+                    <option value="4">Semester 4</option>
+                    <option value="5">Semester 5</option>
+                    <option value="6">Semester 6</option>
+                    <option value="7">Semester 7</option>
+                    <option value="8">Semester 8</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="f-prodi">Program Studi <span class="req">*</span></label>
+                  <input type="text" id="f-prodi" placeholder="Contoh: Teknik Informatika" required oninput="updatePreview()"/>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 2: Mata Kuliah -->
+            <div class="form-section">
+              <div class="form-section-header">
+                <div class="step-badge">2</div>
+                <div>
+                  <h3>Data Mata Kuliah</h3>
+                  <p>Detail mata kuliah (Ketik untuk mencari otomatis dari riwayat)</p>
+                </div>
+              </div>
+              <div class="form-grid">
+                <div class="form-group form-group-wide autocomplete-wrapper">
+                  <label for="f-mk">Nama Mata Kuliah <span class="req">*</span></label>
+                  <input type="text" id="f-mk" placeholder="Contoh: Pemrograman Web" required autocomplete="off" oninput="handleInputSearch('mk'); updatePreview()" onfocus="handleInputSearch('mk')"/>
+                  <ul class="autocomplete-list" id="auto-mk"></ul>
+                </div>
+                <div class="form-group">
+                  <label for="f-kodemk">Kode MK <span class="req">*</span></label>
+                  <input type="text" id="f-kodemk" placeholder="Contoh: IF301" required oninput="updatePreview()"/>
+                </div>
+                <div class="form-group">
+                  <label for="f-sks">SKS <span class="req">*</span></label>
+                  <select id="f-sks" required onchange="updatePreview()">
+                    <option value="">-- SKS --</option>
+                    <option value="1">1 SKS</option>
+                    <option value="2">2 SKS</option>
+                    <option value="3">3 SKS</option>
+                    <option value="4">4 SKS</option>
+                    <option value="6">6 SKS</option>
+                  </select>
+                </div>
+                <div class="form-group form-group-wide autocomplete-wrapper">
+                  <label for="f-dosen">Nama Dosen Pengampu <span class="req">*</span></label>
+                  <input type="text" id="f-dosen" placeholder="Contoh: Dr. Ahmad Fauzi, M.Kom" required autocomplete="off" oninput="handleInputSearch('dosen'); updatePreview()" onfocus="handleInputSearch('dosen')"/>
+                  <ul class="autocomplete-list" id="auto-dosen"></ul>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 3: Nilai -->
+            <div class="form-section">
+              <div class="form-section-header">
+                <div class="step-badge">3</div>
+                <div>
+                  <h3>Input Nilai</h3>
+                  <p>Masukkan nilai 0 – 100 untuk setiap komponen</p>
+                </div>
+              </div>
+              <div class="nilai-grid">
+                <div class="nilai-card-input">
+                  <div class="nilai-label">
+                    <div class="nilai-badge" style="background:linear-gradient(135deg,#3ecfcf,#06b6d4)">Q</div>
+                    <div>
+                      <strong>Quiz / Tugas</strong>
+                      <span>Bobot 25%</span>
+                    </div>
+                  </div>
+                  <input type="number" id="f-quiz" min="0" max="100" placeholder="0 – 100" required oninput="updatePreview()"/>
+                  <div class="nilai-bar"><div class="nilai-bar-fill" id="bar-quiz" style="background:linear-gradient(90deg,#3ecfcf,#06b6d4)"></div></div>
+                </div>
+                <div class="nilai-card-input">
+                  <div class="nilai-label">
+                    <div class="nilai-badge" style="background:linear-gradient(135deg,#7c6ff7,#a78bfa)">U</div>
+                    <div>
+                      <strong>Nilai UTS</strong>
+                      <span>Bobot 35%</span>
+                    </div>
+                  </div>
+                  <input type="number" id="f-uts" min="0" max="100" placeholder="0 – 100" required oninput="updatePreview()"/>
+                  <div class="nilai-bar"><div class="nilai-bar-fill" id="bar-uts" style="background:linear-gradient(90deg,#7c6ff7,#a78bfa)"></div></div>
+                </div>
+                <div class="nilai-card-input">
+                  <div class="nilai-label">
+                    <div class="nilai-badge" style="background:linear-gradient(135deg,#f59e0b,#f97316)">A</div>
+                    <div>
+                      <strong>Nilai UAS</strong>
+                      <span>Bobot 40%</span>
+                    </div>
+                  </div>
+                  <input type="number" id="f-uas" min="0" max="100" placeholder="0 – 100" required oninput="updatePreview()"/>
+                  <div class="nilai-bar"><div class="nilai-bar-fill" id="bar-uas" style="background:linear-gradient(90deg,#f59e0b,#f97316)"></div></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="button" class="btn-outline" onclick="resetForm()">Reset Form</button>
+              <button type="submit" class="btn-primary" id="submit-btn">
+                <svg viewBox="0 0 24 24" fill="none" width="18" height="18"><path d="M5 12l5 5L20 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Simpan Nilai
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- RIGHT: Preview -->
+        <div class="preview-container">
+          <div class="preview-card">
+            <div class="preview-header">
+              <svg viewBox="0 0 24 24" fill="none" width="20" height="20"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="9" y="3" width="6" height="4" rx="1" stroke="currentColor" stroke-width="2"/></svg>
+              Preview Hasil
+            </div>
+
+            <div class="preview-student">
+              <div class="preview-avatar" id="prev-avatar">?</div>
+              <div>
+                <div class="preview-name" id="prev-nama">Nama Mahasiswa</div>
+                <div class="preview-nim" id="prev-nim">NIM: –</div>
+              </div>
+            </div>
+
+            <div class="preview-mk" id="prev-mk">Mata Kuliah: –</div>
+            <div class="preview-dosen" id="prev-dosen">Dosen: –</div>
+
+            <div class="preview-divider"></div>
+
+            <div class="preview-scores">
+              <div class="score-item">
+                <span class="score-label">Quiz (25%)</span>
+                <span class="score-val" id="prev-quiz">–</span>
+              </div>
+              <div class="score-item">
+                <span class="score-label">UTS (35%)</span>
+                <span class="score-val" id="prev-uts">–</span>
+              </div>
+              <div class="score-item">
+                <span class="score-label">UAS (40%)</span>
+                <span class="score-val" id="prev-uas">–</span>
+              </div>
+            </div>
+
+            <div class="preview-divider"></div>
+
+            <div class="preview-result">
+              <div class="result-angka">
+                <div class="result-label">Nilai Akhir</div>
+                <div class="result-value" id="prev-akhir">–</div>
+              </div>
+              <div class="result-huruf-box">
+                <div class="result-huruf" id="prev-huruf">–</div>
+                <div class="result-bobot" id="prev-bobot">–</div>
+              </div>
+            </div>
+
+            <div class="predikat-badge" id="prev-predikat">Masukkan nilai untuk melihat hasil</div>
+          </div>
+
+          <!-- Grade Reference -->
+          <div class="grade-ref-card">
+            <div class="grade-ref-title">Tabel Konversi Nilai</div>
+            <div class="grade-ref-grid">
+              <div class="gr-item"><span class="gr-range">85–100</span><span class="gr-huruf a">A</span><span class="gr-poin">4.0</span></div>
+              <div class="gr-item"><span class="gr-range">80–84</span><span class="gr-huruf a-">A-</span><span class="gr-poin">3.7</span></div>
+              <div class="gr-item"><span class="gr-range">75–79</span><span class="gr-huruf b+">B+</span><span class="gr-poin">3.3</span></div>
+              <div class="gr-item"><span class="gr-range">70–74</span><span class="gr-huruf b">B</span><span class="gr-poin">3.0</span></div>
+              <div class="gr-item"><span class="gr-range">65–69</span><span class="gr-huruf b-">B-</span><span class="gr-poin">2.7</span></div>
+              <div class="gr-item"><span class="gr-range">60–64</span><span class="gr-huruf c+">C+</span><span class="gr-poin">2.3</span></div>
+              <div class="gr-item"><span class="gr-range">55–59</span><span class="gr-huruf c">C</span><span class="gr-poin">2.0</span></div>
+              <div class="gr-item"><span class="gr-range">50–54</span><span class="gr-huruf c-">C-</span><span class="gr-poin">1.7</span></div>
+              <div class="gr-item"><span class="gr-range">45–49</span><span class="gr-huruf d">D</span><span class="gr-poin">1.0</span></div>
+              <div class="gr-item"><span class="gr-range">0–44</span><span class="gr-huruf e">E</span><span class="gr-poin">0.0</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== RIWAYAT TAB ======== -->
+    <section class="tab-section" id="tab-riwayat">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Riwayat Nilai</h1>
+          <p class="page-subtitle">Semua data nilai yang telah diinputkan</p>
+        </div>
+        <button class="btn-primary" onclick="loadData()">
+          <svg viewBox="0 0 24 24" fill="none" width="18" height="18"><path d="M4 4v5h5M20 20v-5h-5M4 9a8 8 0 0114.93-3M20 15a8 8 0 01-14.93 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          Refresh
+        </button>
+      </div>
+
+      <!-- Filter Bar -->
+      <div class="filter-bar">
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" fill="none" width="18" height="18"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M16.5 16.5L21 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <input type="text" id="search-input" placeholder="Cari nama, NIM, atau mata kuliah…" oninput="filterTable()"/>
+        </div>
+        <select id="filter-semester" onchange="filterTable()">
+          <option value="">Semua Semester</option>
+          <option value="1">Semester 1</option>
+          <option value="2">Semester 2</option>
+          <option value="3">Semester 3</option>
+          <option value="4">Semester 4</option>
+          <option value="5">Semester 5</option>
+          <option value="6">Semester 6</option>
+          <option value="7">Semester 7</option>
+          <option value="8">Semester 8</option>
+        </select>
+        <select id="filter-huruf" onchange="filterTable()">
+          <option value="">Semua Nilai</option>
+          <option value="A">A</option>
+          <option value="A-">A-</option>
+          <option value="B+">B+</option>
+          <option value="B">B</option>
+          <option value="B-">B-</option>
+          <option value="C+">C+</option>
+          <option value="C">C</option>
+          <option value="C-">C-</option>
+          <option value="D">D</option>
+          <option value="E">E</option>
+        </select>
+        <button class="btn-outline" onclick="exportCSV()">
+          <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Export CSV
+        </button>
+      </div>
+
+      <div class="card">
+        <div class="table-wrapper">
+          <table class="data-table" id="main-table">
+            <thead>
+              <tr>
+                <th onclick="sortTable('nama')" class="sortable">Nama <span class="sort-icon">↕</span></th>
+                <th onclick="sortTable('nim')" class="sortable">NIM <span class="sort-icon">↕</span></th>
+                <th>Semester</th>
+                <th>Mata Kuliah</th>
+                <th>SKS</th>
+                <th>Dosen</th>
+                <th onclick="sortTable('quiz')" class="sortable">Quiz <span class="sort-icon">↕</span></th>
+                <th onclick="sortTable('uts')" class="sortable">UTS <span class="sort-icon">↕</span></th>
+                <th onclick="sortTable('uas')" class="sortable">UAS <span class="sort-icon">↕</span></th>
+                <th onclick="sortTable('nilaiAkhir')" class="sortable">Nilai Akhir <span class="sort-icon">↕</span></th>
+                <th>Huruf</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="main-tbody">
+              <tr class="empty-row"><td colspan="12">Memuat data…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="table-footer">
+          <span id="row-count">0 data ditemukan</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== PROFIL MAHASISWA TAB ======== -->
+    <section class="tab-section" id="tab-mahasiswa">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Profil Mahasiswa</h1>
+          <p class="page-subtitle">Lihat rekap nilai, IPS, dan IPK per mahasiswa</p>
+        </div>
+      </div>
+
+      <div class="search-nim-box">
+        <div class="search-nim-input">
+          <svg viewBox="0 0 24 24" fill="none" width="20" height="20"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M16.5 16.5L21 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <input type="text" id="search-nim" placeholder="Cari mahasiswa (Nama atau NIM)…" oninput="searchByNIM()"/>
+        </div>
+      </div>
+
+      <div id="student-profile" class="student-profile-hidden">
+        <!-- Filled by JS -->
+      </div>
+
+
+      <div id="nim-empty" class="nim-empty-state">
+        <svg viewBox="0 0 24 24" fill="none" width="64" height="64" opacity="0.3"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="1.5"/></svg>
+        <p>Ketikkan NIM untuk melihat profil mahasiswa</p>
+      </div>
+    </section>
+
+
+
+  <!-- ======== TOAST NOTIFICATION ======== -->
+  <div id="toast" class="toast"></div>
+
+  <!-- ======== DELETE CONFIRM MODAL ======== -->
+  <div id="modal-overlay" class="modal-overlay" onclick="closeModal()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-icon">🗑️</div>
+      <h3>Hapus Data Nilai?</h3>
+      <p>Data yang dihapus tidak dapat dikembalikan.</p>
+      <div class="modal-actions">
+        <button class="btn-outline" onclick="closeModal()">Batal</button>
+        <button class="btn-danger" id="confirm-delete-btn">Ya, Hapus</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
