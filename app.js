@@ -493,11 +493,23 @@ function resetMahasiswaProfile() {
   if (emptyEl) { emptyEl.style.display = 'flex'; emptyEl.innerHTML = emptyEl.dataset.emptyHtml || emptyEl.innerHTML; }
 
   if (qInput) qInput.value = '';
+  const nInput = document.getElementById('search-nama');
+  if (nInput) nInput.value = '';
+
   if (btnReset) btnReset.style.display = 'none';
-  if (autoList) autoList.innerHTML = '';
+  if (autoList) { autoList.innerHTML = ''; autoList.style.display = 'none'; }
+  const autoNama = document.getElementById('auto-mahasiswa-nama');
+  if (autoNama) { autoNama.innerHTML = ''; autoNama.style.display = 'none'; }
 }
 
-function renderMahasiswaAutocomplete(nimQuery) {
+
+function clearAutocomplete(listEl) {
+  if (!listEl) return;
+  listEl.innerHTML = '';
+  listEl.style.display = 'none';
+}
+
+function renderMahasiswaAutocompleteByNIM(nimQuery) {
   const listEl  = document.getElementById('auto-mahasiswa-nim');
   const btnReset = document.getElementById('reset-student-btn');
   if (!listEl) return;
@@ -523,11 +535,62 @@ function renderMahasiswaAutocomplete(nimQuery) {
 
   listEl.style.display = 'block';
   listEl.innerHTML = matches.map(s => `
-    <li onclick="searchByNIM('${esc(s.nim)}')">
+    <li onclick="selectStudentByNIM('${esc(s.nim)}')">
       <div style="font-weight:700">${esc(s.nim)}</div>
       <small>${esc(s.nama)} — ${esc(s.prodi)}</small>
     </li>
   `).join('');
+}
+
+function renderMahasiswaAutocompleteByNama(namaQuery) {
+  const listEl  = document.getElementById('auto-mahasiswa-nama');
+  if (!listEl) return;
+
+  listEl.innerHTML = '';
+
+  if (!namaQuery) {
+    listEl.style.display = 'none';
+    return;
+  }
+
+  const query = namaQuery.toLowerCase();
+  const students = getUniqueStudents();
+
+  let matches = students.filter(s => (s.nama || '').toLowerCase().includes(query));
+  // urutkan agar nama yang lebih mirip muncul dulu (simple: panjang string)
+  matches = matches.slice(0, 8);
+
+  if (matches.length === 0) {
+    listEl.style.display = 'none';
+    return;
+  }
+
+  listEl.style.display = 'block';
+  listEl.innerHTML = matches.map(s => `
+    <li onclick="selectStudentByNIM('${esc(s.nim)}')">
+      <div style="font-weight:700">${esc(s.nama)}</div>
+      <small>${esc(s.nim)} — ${esc(s.prodi)}</small>
+    </li>
+  `).join('');
+}
+
+function selectStudentByNIM(nim) {
+  const qEl = document.getElementById('search-nim');
+  const nEl = document.getElementById('search-nama');
+
+  if (qEl) qEl.value = nim;
+  // isi nama berdasarkan data unik
+  const students = getUniqueStudents();
+  const found = students.find(s => s.nim === nim);
+  if (nEl && found) nEl.value = found.nama || '';
+
+  // tampilkan profil
+  searchByNIM(nim);
+
+  const autoNim = document.getElementById('auto-mahasiswa-nim');
+  const autoNama = document.getElementById('auto-mahasiswa-nama');
+  clearAutocomplete(autoNim);
+  clearAutocomplete(autoNama);
 }
 
 function searchByNIM(qOverride) {
@@ -539,23 +602,30 @@ function searchByNIM(qOverride) {
   const btnReset  = document.getElementById('reset-student-btn');
   const autoList  = document.getElementById('auto-mahasiswa-nim');
 
+
+
   if (!q) {
-    if (autoList) autoList.innerHTML = '';
+    const autoNama = document.getElementById('auto-mahasiswa-nama');
+    if (autoList) { autoList.innerHTML = ''; autoList.style.display = 'none'; }
+    if (autoNama) { autoNama.innerHTML = ''; autoNama.style.display = 'none'; }
+
     if (profileEl) profileEl.className = 'student-profile-hidden';
     if (emptyEl) { emptyEl.style.display = 'flex'; }
     if (btnReset) btnReset.style.display = 'none';
     return;
   }
 
+
   // kalau user masih mengetik (tanpa override), tampilkan autocomplete
   if (qOverride === undefined && autoList) {
-    renderMahasiswaAutocomplete(q);
+    renderMahasiswaAutocompleteByNIM(q);
   }
 
   const query = q.toLowerCase();
 
   // Cari berdasarkan NIM saja
   const records = allData.filter(r => (r.nim || '').toLowerCase().includes(query));
+
 
 
   if (records.length === 0) {
@@ -578,10 +648,13 @@ function renderStudentProfile(records) {
   const sample    = records[0];
 
   // reset & ringkas daftar autocomplete setelah terpilih
-  const autoList  = document.getElementById('auto-mahasiswa-nim');
+  const autoNim  = document.getElementById('auto-mahasiswa-nim');
+  const autoNama = document.getElementById('auto-mahasiswa-nama');
   const btnReset  = document.getElementById('reset-student-btn');
-  if (autoList) autoList.style.display = 'none';
+  if (autoNim) autoNim.style.display = 'none';
+  if (autoNama) autoNama.style.display = 'none';
   if (btnReset) btnReset.style.display = 'inline-flex';
+
 
 
   // Kelompokkan per mahasiswa (berdasarkan NIM) agar aman saat query mengembalikan banyak record

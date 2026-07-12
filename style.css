@@ -682,9 +682,22 @@ input[type=number] { -moz-appearance: textfield; }
 .autocomplete-list li small { color: var(--text-muted); font-size: 0.75rem; }
 
 /* Autocomplete khusus profil mahasiswa (agar tetap muncul di bawah input) */
-#auto-mahasiswa-nim {
+#auto-mahasiswa-nim,
+#auto-mahasiswa-nama {
   width: 100%;
 }
+
+.profile-search-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+#auto-mahasiswa-nim,
+#auto-mahasiswa-nama {
+  position: absolute;
+}
+
 
 
 /* ── RESPONSIVE ── */
