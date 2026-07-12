@@ -237,8 +237,24 @@ async function submitGrade(e) {
     };
 
     if (!API_URL) {
-      // Jika API belum terkonfigurasi, jangan kirim ke server
-      toast('❌ API URL belum terkonfigurasi. Buka Dashboard → Koneksi Database → klik Simpan & Tes.', 'error');
+      // Fallback: simpan ke localStorage supaya tombol Simpan Nilai tetap berfungsi
+      const now = Date.now();
+      const localPayload = {
+        id: 'local_' + now,
+        timestamp: new Date(now).toISOString(),
+        ...payload,
+      };
+
+      const existing = getLocalData();
+      existing.push(localPayload);
+      setLocalData(existing);
+
+      // Update state
+      await loadData();
+      toast('✅ Nilai tersimpan (mode localStorage - belum pakai Google Sheets)', 'success');
+
+      resetForm();
+      showTab('dashboard');
       return;
     }
 
