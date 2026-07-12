@@ -18,6 +18,12 @@ let API_URL = localStorage.getItem('sinilai_api_url') || '';
 // ── INIT ───────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   // Isi & sinkronkan URL API
+  // simpan template empty-state untuk reset
+  const emptyEl = document.getElementById('nim-empty');
+  if (emptyEl && !emptyEl.dataset.emptyHtml) {
+    emptyEl.dataset.emptyHtml = emptyEl.innerHTML;
+  }
+
   const urlInput = document.getElementById('api-url-input');
   if (urlInput) {
     // Jika localStorage kosong, pakai nilai default yang ada di input
@@ -302,9 +308,8 @@ async function loadData() {
   filteredData = [...allData];
   renderDashboard();
   renderMainTable();
-  // isi dropdown profil
-  populateStudentSelects();
 }
+
 
 // ── LOCAL STORAGE HELPERS ──────────────────────
 function getLocalData() {
@@ -477,60 +482,52 @@ function getUniqueStudents() {
   return [...map.values()];
 }
 
-function populateStudentSelects() {
-  const students = getUniqueStudents().sort((a, b) => {
-    const na = (a.nama || '').toLowerCase();
-    const nb = (b.nama || '').toLowerCase();
-    if (na < nb) return -1;
-    if (na > nb) return 1;
-    return a.nim.localeCompare(b.nim);
-  });
-
-  const selNim = document.getElementById('select-nim');
-  const selNama = document.getElementById('select-nama');
-  if (!selNim || !selNama) return;
-
-  selNim.innerHTML = '<option value="">-- Pilih NIM --</option>';
-  selNama.innerHTML = '<option value="">-- Pilih Nama --</option>';
-
-  students.forEach(s => {
-    const optNim = document.createElement('option');
-    optNim.value = s.nim;
-    optNim.textContent = `${s.nim} — ${s.nama}`;
-    selNim.appendChild(optNim);
-
-    const optNama = document.createElement('option');
-    // nilai select untuk nama memakai nim biar unik dan aman
-    optNama.value = s.nim;
-    optNama.textContent = `${s.nama} — ${s.nim}`;
-    selNama.appendChild(optNama);
-  });
-
-  // Jika sudah ada pilihan sebelumnya dan masih valid, biarkan.
-  const hasAny = students.length > 0;
-  selNim.disabled = !hasAny;
-  selNama.disabled = !hasAny;
-}
-
-function handleSelectMahasiswa(type) {
+function resetMahasiswaProfile() {
   const profileEl = document.getElementById('student-profile');
   const emptyEl   = document.getElementById('nim-empty');
-  const qInput = document.getElementById('search-nim');
+  const qInput    = document.getElementById('search-nim');
+  const btnReset  = document.getElementById('reset-student-btn');
+  const autoList  = document.getElementById('auto-mahasiswa-nim');
 
-  const nimSelected = type === 'nim'
-    ? document.getElementById('select-nim').value
-    : document.getElementById('select-nama').value;
+  if (profileEl) profileEl.className = 'student-profile-hidden';
+  if (emptyEl) { emptyEl.style.display = 'flex'; emptyEl.innerHTML = emptyEl.dataset.emptyHtml || emptyEl.innerHTML; }
 
-  if (!nimSelected) {
-    profileEl.className = 'student-profile-hidden';
-    emptyEl.style.display = 'flex';
-    if (qInput) qInput.value = '';
+  if (qInput) qInput.value = '';
+  if (btnReset) btnReset.style.display = 'none';
+  if (autoList) autoList.innerHTML = '';
+}
+
+function renderMahasiswaAutocomplete(nimQuery) {
+  const listEl  = document.getElementById('auto-mahasiswa-nim');
+  const btnReset = document.getElementById('reset-student-btn');
+  if (!listEl) return;
+
+  listEl.innerHTML = '';
+
+  if (!nimQuery) {
+    listEl.style.display = 'none';
+    if (btnReset) btnReset.style.display = 'none';
     return;
   }
 
-  // isi input opsional agar searchByNIM() konsisten
-  if (qInput) qInput.value = nimSelected;
-  searchByNIM(nimSelected);
+  const query = nimQuery.toLowerCase();
+  const students = getUniqueStudents();
+
+  let matches = students.filter(s => (s.nim || '').toLowerCase().includes(query));
+  matches = matches.slice(0, 8);
+
+  if (matches.length === 0) {
+    listEl.style.display = 'none';
+    return;
+  }
+
+  listEl.style.display = 'block';
+  listEl.innerHTML = matches.map(s => `
+    <li onclick="searchByNIM('${esc(s.nim)}')">
+      <div style="font-weight:700">${esc(s.nim)}</div>
+      <small>${esc(s.nama)} — ${esc(s.prodi)}</small>
+    </li>
+  `).join('');
 }
 
 function searchByNIM(qOverride) {
@@ -539,23 +536,27 @@ function searchByNIM(qOverride) {
 
   const profileEl = document.getElementById('student-profile');
   const emptyEl   = document.getElementById('nim-empty');
+  const btnReset  = document.getElementById('reset-student-btn');
+  const autoList  = document.getElementById('auto-mahasiswa-nim');
 
-
-  // Ambil toleransi: minimal 1 karakter (hindari kasus user mengetik 1 digit NIM)
   if (!q) {
-    profileEl.className = 'student-profile-hidden';
-    emptyEl.style.display = 'flex';
+    if (autoList) autoList.innerHTML = '';
+    if (profileEl) profileEl.className = 'student-profile-hidden';
+    if (emptyEl) { emptyEl.style.display = 'flex'; }
+    if (btnReset) btnReset.style.display = 'none';
     return;
   }
 
+  // kalau user masih mengetik (tanpa override), tampilkan autocomplete
+  if (qOverride === undefined && autoList) {
+    renderMahasiswaAutocomplete(q);
+  }
 
   const query = q.toLowerCase();
-  // Cari berdasarkan nim atau nama
-  const records = allData.filter(r => {
-    const nim = (r.nim || '').toLowerCase();
-    const nama = (r.nama || '').toLowerCase();
-    return nim.includes(query) || nama.includes(query);
-  });
+
+  // Cari berdasarkan NIM saja
+  const records = allData.filter(r => (r.nim || '').toLowerCase().includes(query));
+
 
   if (records.length === 0) {
     profileEl.className = 'student-profile-hidden';
@@ -565,13 +566,23 @@ function searchByNIM(qOverride) {
   }
 
   emptyEl.style.display = 'none';
+  if (btnReset) btnReset.style.display = 'inline-flex';
+  if (autoList) autoList.innerHTML = '';
   renderStudentProfile(records);
 }
+
 
 
 function renderStudentProfile(records) {
   const profileEl = document.getElementById('student-profile');
   const sample    = records[0];
+
+  // reset & ringkas daftar autocomplete setelah terpilih
+  const autoList  = document.getElementById('auto-mahasiswa-nim');
+  const btnReset  = document.getElementById('reset-student-btn');
+  if (autoList) autoList.style.display = 'none';
+  if (btnReset) btnReset.style.display = 'inline-flex';
+
 
   // Kelompokkan per mahasiswa (berdasarkan NIM) agar aman saat query mengembalikan banyak record
   const nimKey = (sample.nim || '').trim();

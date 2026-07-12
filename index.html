@@ -450,27 +450,14 @@
       </div>
 
       <div class="search-nim-box">
-        <div class="profile-select-grid">
-          <div class="form-group">
-            <label for="select-nim">Pilih berdasarkan NIM</label>
-            <select id="select-nim" onchange="handleSelectMahasiswa('nim')">
-              <option value="">-- Pilih NIM --</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label for="select-nama">Pilih berdasarkan Nama</label>
-            <select id="select-nama" onchange="handleSelectMahasiswa('nama')">
-              <option value="">-- Pilih Nama --</option>
-            </select>
-          </div>
-        </div>
-
         <div class="search-nim-input search-nim-input--autocomplete">
           <svg viewBox="0 0 24 24" fill="none" width="20" height="20"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M16.5 16.5L21 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          <input type="text" id="search-nim" placeholder="(Opsional) Cari mahasiswa (Nama atau NIM)…" oninput="searchByNIM()"/>
+          <input type="text" id="search-nim" placeholder="Cari mahasiswa (NIM)…" oninput="searchByNIM()" autocomplete="off"/>
+          <button type="button" class="btn-outline" onclick="resetMahasiswaProfile()" style="padding:8px 14px; display:none;" id="reset-student-btn">Reset</button>
         </div>
+        <ul class="autocomplete-list" id="auto-mahasiswa-nim"></ul>
       </div>
+
 
 
       <div id="student-profile" class="student-profile-hidden">
@@ -480,7 +467,7 @@
 
       <div id="nim-empty" class="nim-empty-state">
         <svg viewBox="0 0 24 24" fill="none" width="64" height="64" opacity="0.3"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="1.5"/></svg>
-        <p>Pilih NIM/Nama dari dropdown untuk melihat profil mahasiswa</p>
+        <p>Masukkan NIM untuk melihat profil mahasiswa</p>
       </div>
 
     </section>
