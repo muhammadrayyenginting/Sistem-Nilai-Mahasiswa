@@ -514,6 +514,7 @@ function renderMahasiswaAutocompleteByNIM(nimQuery) {
   const btnReset = document.getElementById('reset-student-btn');
   if (!listEl) return;
 
+
   listEl.innerHTML = '';
 
   if (!nimQuery) {
@@ -593,9 +594,53 @@ function selectStudentByNIM(nim) {
   clearAutocomplete(autoNama);
 }
 
+function searchByNama(qOverride) {
+  const nEl = document.getElementById('search-nama');
+  const n = (qOverride !== undefined ? String(qOverride) : nEl.value).trim();
+
+  const profileEl = document.getElementById('student-profile');
+  const emptyEl   = document.getElementById('nim-empty');
+  const btnReset  = document.getElementById('reset-student-btn');
+  const autoList  = document.getElementById('auto-mahasiswa-nama');
+
+  if (!n) {
+    const autoNim = document.getElementById('auto-mahasiswa-nim');
+    if (autoList) { autoList.innerHTML = ''; autoList.style.display = 'none'; }
+    if (autoNim)  { autoNim.innerHTML = ''; autoNim.style.display = 'none'; }
+
+    if (profileEl) profileEl.className = 'student-profile-hidden';
+    if (emptyEl) emptyEl.style.display = 'flex';
+    if (btnReset) btnReset.style.display = 'none';
+    return;
+  }
+
+  // kalau user mengetik (tanpa override), tampilkan autocomplete
+  if (qOverride === undefined && autoList) {
+    renderMahasiswaAutocompleteByNama(n);
+  }
+
+  const query = n.toLowerCase();
+  const records = allData.filter(r => (r.nama || '').toLowerCase().includes(query));
+
+  if (records.length === 0) {
+    profileEl.className = 'student-profile-hidden';
+    emptyEl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" width="64" height="64" opacity="0.3"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/><path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><p>Mahasiswa "<strong>${esc(n)}</strong>" tidak ditemukan.</p>`;
+    emptyEl.style.display = 'flex';
+    return;
+  }
+
+  emptyEl.style.display = 'none';
+  if (btnReset) btnReset.style.display = 'inline-flex';
+  if (autoList) autoList.innerHTML = '';
+
+  // pilih salah satu NIM dari hasil untuk render (renderStudentProfile akan group by nim)
+  renderStudentProfile(records);
+}
+
 function searchByNIM(qOverride) {
   const qEl = document.getElementById('search-nim');
   const q = (qOverride !== undefined ? String(qOverride) : qEl.value).trim();
+
 
   const profileEl = document.getElementById('student-profile');
   const emptyEl   = document.getElementById('nim-empty');

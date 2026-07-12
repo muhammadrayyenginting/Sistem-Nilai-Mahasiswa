@@ -474,6 +474,18 @@ body.light-theme .filter-bar select option { background: #e4e4f8; }
   max-width: 540px; margin-bottom: 28px;
 }
 
+.profile-instructions{
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  margin: -2px 0 12px;
+}
+
+.all-students-list{
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
 
 .search-nim-input {
 
