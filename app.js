@@ -12,14 +12,22 @@ let sortKey = null;
 let sortAsc = true;
 let pendingDeleteId = null;
 
-// Ambil API URL dari localStorage
+// Ambil API URL dari localStorage (default bisa diambil dari input bila kosong)
 let API_URL = localStorage.getItem('sinilai_api_url') || '';
 
 // ── INIT ───────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  // Isi URL di panduan jika sudah tersimpan
+  // Isi & sinkronkan URL API
   const urlInput = document.getElementById('api-url-input');
-  if (urlInput && API_URL) urlInput.value = API_URL;
+  if (urlInput) {
+    // Jika localStorage kosong, pakai nilai default yang ada di input
+    if (!API_URL && urlInput.value && urlInput.value.trim()) {
+      API_URL = urlInput.value.trim();
+      localStorage.setItem('sinilai_api_url', API_URL);
+    } else if (API_URL) {
+      urlInput.value = API_URL;
+    }
+  }
 
   // Muat data
   loadData();
@@ -222,17 +230,14 @@ async function submitGrade(e) {
       nilaiAkhir, huruf, bobot
     };
 
-    if (API_URL) {
-      // Kirim ke Google Sheets
-      await postToSheets({ action: 'addGrade', ...payload });
-    } else {
-      // Simpan ke localStorage (mode offline)
-      const id = 'local_' + Date.now();
-      const ts = new Date().toISOString();
-      const stored = getLocalData();
-      stored.push({ id, timestamp: ts, ...payload });
-      setLocalData(stored);
+    if (!API_URL) {
+      // Jika API belum terkonfigurasi, jangan kirim ke server
+      toast('❌ API URL belum terkonfigurasi. Buka Dashboard → Koneksi Database → klik Simpan & Tes.', 'error');
+      return;
     }
+
+    // Kirim ke Google Sheets
+    await postToSheets({ action: 'addGrade', ...payload });
 
     // Update state
     await loadData();
@@ -261,6 +266,7 @@ async function loadData() {
       const json = await res.json();
       if (json.success) {
         allData = json.data.map(row => ({
+
           id:         row.id,
           timestamp:  row.timestamp,
           nama:       row.nama,
@@ -283,13 +289,21 @@ async function loadData() {
       allData = getLocalData();
     }
   } catch (err) {
-    console.warn('Gagal fetch Google Sheets, pakai localStorage:', err.message);
-    allData = getLocalData();
+    // Jangan sembunyikan error kalau API sudah terkonfigurasi
+    if (API_URL) {
+      toast('❌ Gagal mengambil data dari Google Sheets: ' + err.message, 'error');
+      console.warn('Gagal fetch Google Sheets:', err.message);
+      allData = [];
+    } else {
+      allData = getLocalData();
+    }
   }
 
   filteredData = [...allData];
   renderDashboard();
   renderMainTable();
+  // isi dropdown profil
+  populateStudentSelects();
 }
 
 // ── LOCAL STORAGE HELPERS ──────────────────────
@@ -435,12 +449,8 @@ function closeModal() {
 async function confirmDelete() {
   if (!pendingDeleteId) return;
   try {
-    if (API_URL) {
-      await postToSheets({ action: 'deleteGrade', id: pendingDeleteId });
-    } else {
-      const data = getLocalData().filter(r => String(r.id) !== String(pendingDeleteId));
-      setLocalData(data);
-    }
+    if (!API_URL) throw new Error('API URL belum terkonfigurasi');
+    await postToSheets({ action: 'deleteGrade', id: pendingDeleteId });
     await loadData();
     toast('🗑️ Data berhasil dihapus', 'info');
     closeModal();
@@ -450,10 +460,86 @@ async function confirmDelete() {
 }
 
 // ── PROFIL MAHASISWA ───────────────────────────
-function searchByNIM() {
-  const q = document.getElementById('search-nim').value.trim();
+function getUniqueStudents() {
+  // unik berdasarkan NIM
+  const map = new Map();
+  allData.forEach(r => {
+    const nim = (r.nim || '').trim();
+    if (!nim) return;
+    if (!map.has(nim)) {
+      map.set(nim, {
+        nim,
+        nama: r.nama || '-',
+        prodi: r.prodi || '-',
+      });
+    }
+  });
+  return [...map.values()];
+}
+
+function populateStudentSelects() {
+  const students = getUniqueStudents().sort((a, b) => {
+    const na = (a.nama || '').toLowerCase();
+    const nb = (b.nama || '').toLowerCase();
+    if (na < nb) return -1;
+    if (na > nb) return 1;
+    return a.nim.localeCompare(b.nim);
+  });
+
+  const selNim = document.getElementById('select-nim');
+  const selNama = document.getElementById('select-nama');
+  if (!selNim || !selNama) return;
+
+  selNim.innerHTML = '<option value="">-- Pilih NIM --</option>';
+  selNama.innerHTML = '<option value="">-- Pilih Nama --</option>';
+
+  students.forEach(s => {
+    const optNim = document.createElement('option');
+    optNim.value = s.nim;
+    optNim.textContent = `${s.nim} — ${s.nama}`;
+    selNim.appendChild(optNim);
+
+    const optNama = document.createElement('option');
+    // nilai select untuk nama memakai nim biar unik dan aman
+    optNama.value = s.nim;
+    optNama.textContent = `${s.nama} — ${s.nim}`;
+    selNama.appendChild(optNama);
+  });
+
+  // Jika sudah ada pilihan sebelumnya dan masih valid, biarkan.
+  const hasAny = students.length > 0;
+  selNim.disabled = !hasAny;
+  selNama.disabled = !hasAny;
+}
+
+function handleSelectMahasiswa(type) {
   const profileEl = document.getElementById('student-profile');
   const emptyEl   = document.getElementById('nim-empty');
+  const qInput = document.getElementById('search-nim');
+
+  const nimSelected = type === 'nim'
+    ? document.getElementById('select-nim').value
+    : document.getElementById('select-nama').value;
+
+  if (!nimSelected) {
+    profileEl.className = 'student-profile-hidden';
+    emptyEl.style.display = 'flex';
+    if (qInput) qInput.value = '';
+    return;
+  }
+
+  // isi input opsional agar searchByNIM() konsisten
+  if (qInput) qInput.value = nimSelected;
+  searchByNIM(nimSelected);
+}
+
+function searchByNIM(qOverride) {
+  const qEl = document.getElementById('search-nim');
+  const q = (qOverride !== undefined ? String(qOverride) : qEl.value).trim();
+
+  const profileEl = document.getElementById('student-profile');
+  const emptyEl   = document.getElementById('nim-empty');
+
 
   // Ambil toleransi: minimal 1 karakter (hindari kasus user mengetik 1 digit NIM)
   if (!q) {
