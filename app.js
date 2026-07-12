@@ -12,28 +12,36 @@ let sortKey = null;
 let sortAsc = true;
 let pendingDeleteId = null;
 
-// Ambil API URL dari localStorage
-let API_URL = localStorage.getItem('sinilai_api_url') || '';
+// Mode data: default "local" supaya bisa simpan data & nilai di web tanpa perlu API URL.
+// Nanti bisa diganti ke "sheets".
+let DATA_MODE = localStorage.getItem('sinilai_data_mode') || 'local';
+
+// Ambil API URL dari localStorage (hanya dipakai jika DATA_MODE === 'sheets')
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxBumno3C-2w8wbTcFkniUJ9XBmIzp3bYKaTqLgZPmTf3GXdhgNsVPId09lQDrfLRw1aA/exec';
+let API_URL = localStorage.getItem('sinilai_api_url') || DEFAULT_API_URL;
+
+// Key localStorage untuk data nilai
+const LS_GRADES_KEY = 'sinilai_grades_v1';
+
+// Simpan template empty-state supaya dashboard/profil tetap aman.
+if (!localStorage.getItem(LS_GRADES_KEY)) {
+  localStorage.setItem(LS_GRADES_KEY, JSON.stringify([]));
+}
+
 
 
 // ── INIT ───────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  // Isi & sinkronkan URL API
   // simpan template empty-state untuk reset
   const emptyEl = document.getElementById('nim-empty');
   if (emptyEl && !emptyEl.dataset.emptyHtml) {
     emptyEl.dataset.emptyHtml = emptyEl.innerHTML;
   }
 
+  // Jika mode sheets, sync URL API ke input (kalau ada)
   const urlInput = document.getElementById('api-url-input');
-  if (urlInput) {
-    // Jika localStorage kosong, pakai nilai default yang ada di input
-    if (!API_URL && urlInput.value && urlInput.value.trim()) {
-      API_URL = urlInput.value.trim();
-      localStorage.setItem('sinilai_api_url', API_URL);
-    } else if (API_URL) {
-      urlInput.value = API_URL;
-    }
+  if (urlInput && DATA_MODE === 'sheets') {
+    if (API_URL) urlInput.value = API_URL;
   }
 
   // Muat data
@@ -42,6 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Konfirmasi hapus
   document.getElementById('confirm-delete-btn').addEventListener('click', confirmDelete);
 });
+
 
 // ── NAVIGASI TAB ──────────────────────────────
 function showTab(name) {
@@ -220,16 +229,15 @@ async function submitGrade(e) {
       return;
     }
 
-    if (!API_URL) {
-      toast('❌ Mode lokal dinonaktifkan. Konfigurasikan URL Google Sheets dulu.', 'error');
-      return;
-    }
-
     const nilaiAkhir = calcNilaiAkhir(quiz, uts, uas);
     const huruf      = nilaiToHuruf(nilaiAkhir);
     const bobot      = hurufToBobot(huruf);
 
     const payload = {
+      // Untuk mode lokal
+      id: cryptoRandomId(),
+      timestamp: new Date().toISOString(),
+
       nama:      document.getElementById('f-nama').value.trim(),
       nim:       document.getElementById('f-nim').value.trim(),
       semester:  document.getElementById('f-semester').value,
@@ -242,8 +250,16 @@ async function submitGrade(e) {
       nilaiAkhir, huruf, bobot
     };
 
-    // Kirim ke Google Sheets
-    await postToSheets({ action: 'addGrade', ...payload });
+    if (DATA_MODE === 'local') {
+      saveToLocal(payload);
+    } else {
+      if (!API_URL) {
+        toast('❌ Mode sheets dinonaktifkan. URL Google Sheets belum terkonfigurasi.', 'error');
+        return;
+      }
+      const { id, timestamp, ...payloadSheets } = payload;
+      await postToSheets({ action: 'addGrade', ...payloadSheets });
+    }
 
     // Update state
     await loadData();
@@ -260,47 +276,99 @@ async function submitGrade(e) {
 }
 
 
+
 function resetForm() {
   document.getElementById('grade-form').reset();
   updatePreview();
 }
 
+// ── LOKAL HELPERS ──────────────────────────────
+function cryptoRandomId() {
+  // cukup untuk identitas lokal
+  if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
+  return 'id-' + Math.random().toString(16).slice(2) + '-' + Date.now();
+}
+
+function loadFromLocal() {
+  try {
+    const raw = localStorage.getItem(LS_GRADES_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(arr)) return [];
+    return arr;
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveToLocal(payload) {
+  const cur = loadFromLocal();
+  cur.push(payload);
+  localStorage.setItem(LS_GRADES_KEY, JSON.stringify(cur));
+}
+
+function deleteFromLocal(id) {
+  const cur = loadFromLocal();
+  const next = cur.filter(x => String(x.id) !== String(id));
+  localStorage.setItem(LS_GRADES_KEY, JSON.stringify(next));
+}
+
 // ── LOAD DATA ──────────────────────────────────
 async function loadData() {
   try {
-    if (!API_URL) {
-      toast('❌ Mode lokal dinonaktifkan. Konfigurasikan URL Google Sheets dulu.', 'error');
-      allData = [];
+    if (DATA_MODE === 'local') {
+      const rows = loadFromLocal();
+      allData = rows.map(row => ({
+        id:         row.id,
+        timestamp:  row.timestamp,
+        nama:       row.nama,
+        nim:        row.nim,
+        semester:   String(row.semester),
+        prodi:      row.prodi,
+        namaMK:     row.namaMK,
+        kodeMK:     row.kodeMK,
+        sks:        parseInt(row.sks) || 0,
+        dosen:      row.dosen,
+        quiz:       parseFloat(row.quiz) || 0,
+        uts:        parseFloat(row.uts) || 0,
+        uas:        parseFloat(row.uas) || 0,
+        nilaiAkhir: parseFloat(row.nilaiAkhir) || 0,
+        huruf:      row.huruf,
+        bobot:      parseFloat(row.bobot) || 0,
+      }));
     } else {
-      const res = await fetch(API_URL + '?action=getGrades');
-      const json = await res.json();
-      if (json.success) {
-        allData = json.data.map(row => ({
-
-          id:         row.id,
-          timestamp:  row.timestamp,
-          nama:       row.nama,
-          nim:        row.nim,
-          semester:   String(row.semester),
-          prodi:      row.prodi,
-          namaMK:     row.namaMK,
-          kodeMK:     row.kodeMK,
-          sks:        parseInt(row.sks) || 0,
-          dosen:      row.dosen,
-          quiz:       parseFloat(row.quiz) || 0,
-          uts:        parseFloat(row.uts) || 0,
-          uas:        parseFloat(row.uas) || 0,
-          nilaiAkhir: parseFloat(row.nilaiAkhir) || 0,
-          huruf:      row.huruf,
-          bobot:      parseFloat(row.bobot) || 0,
-        }));
-      } else {
+      if (!API_URL) {
+        toast('❌ Mode sheets dinonaktifkan. URL Google Sheets belum terkonfigurasi.', 'error');
         allData = [];
+      } else {
+        const res = await fetch(API_URL + '?action=getGrades');
+        const json = await res.json();
+        if (json.success) {
+          allData = json.data.map(row => ({
+            id:         row.id,
+            timestamp:  row.timestamp,
+            nama:       row.nama,
+            nim:        row.nim,
+            semester:   String(row.semester),
+            prodi:      row.prodi,
+            namaMK:     row.namaMK,
+            kodeMK:     row.kodeMK,
+            sks:        parseInt(row.sks) || 0,
+            dosen:      row.dosen,
+            quiz:       parseFloat(row.quiz) || 0,
+            uts:        parseFloat(row.uts) || 0,
+            uas:        parseFloat(row.uas) || 0,
+            nilaiAkhir: parseFloat(row.nilaiAkhir) || 0,
+            huruf:      row.huruf,
+            bobot:      parseFloat(row.bobot) || 0,
+          }));
+        } else {
+          allData = [];
+        }
       }
     }
   } catch (err) {
-    toast('❌ Gagal mengambil data dari Google Sheets: ' + err.message, 'error');
-    console.warn('Gagal fetch Google Sheets:', err.message);
+    toast('❌ Gagal memuat data: ' + err.message, 'error');
+    console.warn('Gagal load data:', err.message);
     allData = [];
   }
 
@@ -310,14 +378,38 @@ async function loadData() {
 }
 
 
+
 // ── GOOGLE SHEETS POST ─────────────────────────
 async function postToSheets(payload) {
   const res = await fetch(API_URL, {
     method: 'POST',
     body: JSON.stringify(payload)
   });
-  const json = await res.json();
-  if (!json.success) throw new Error(json.error || 'Server error');
+
+  // Debug lebih jelas saat gagal simpan
+  let text = '';
+  try {
+    text = await res.text();
+  } catch (_) {}
+
+  // Coba parsing JSON jika memungkinkan
+  let json = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch (_) {
+    json = null;
+  }
+
+  if (!res.ok) {
+    const detail = json?.error ? json.error : (text ? text.slice(0, 500) : '');
+    throw new Error(`HTTP ${res.status} ${res.statusText}${detail ? ' - ' + detail : ''}`);
+  }
+
+  if (!json || json.success === undefined || !json.success) {
+    const detail = json?.error ? json.error : (text ? text.slice(0, 500) : 'Server returned empty/invalid response');
+    throw new Error(detail);
+  }
+
   return json;
 }
 
@@ -444,8 +536,13 @@ function closeModal() {
 async function confirmDelete() {
   if (!pendingDeleteId) return;
   try {
-    if (!API_URL) throw new Error('API URL belum terkonfigurasi');
-    await postToSheets({ action: 'deleteGrade', id: pendingDeleteId });
+    if (DATA_MODE === 'local') {
+      deleteFromLocal(pendingDeleteId);
+    } else {
+      if (!API_URL) throw new Error('API URL belum terkonfigurasi');
+      await postToSheets({ action: 'deleteGrade', id: pendingDeleteId });
+    }
+
     await loadData();
     toast('🗑️ Data berhasil dihapus', 'info');
     closeModal();
@@ -453,6 +550,7 @@ async function confirmDelete() {
     toast('❌ Gagal menghapus: ' + err.message, 'error');
   }
 }
+
 
 // ── PROFIL MAHASISWA ───────────────────────────
 function getUniqueStudents() {
@@ -755,10 +853,15 @@ async function saveApiUrl() {
     if (json.success !== undefined) {
       API_URL = val;
       localStorage.setItem('sinilai_api_url', val);
+
+      // Setelah URL tersimpan, switch ke mode sheets
+      DATA_MODE = 'sheets';
+      localStorage.setItem('sinilai_data_mode', DATA_MODE);
+
       statusEl.className = 'conn-status conn-ok';
       statusEl.textContent = '✅ Terhubung! Database Google Sheets siap digunakan.';
       await loadData();
-      toast('✅ Google Sheets terhubung!', 'success');
+      toast('✅ Terhubung!', 'success');
     } else {
       throw new Error('Respons tidak valid');
     }
@@ -767,6 +870,7 @@ async function saveApiUrl() {
     statusEl.textContent = '❌ Gagal terhubung: ' + err.message + '. Pastikan Apps Script sudah di-deploy dengan akses "Anyone".';
   }
 }
+
 
 // ── COPY CODE ─────────────────────────────────
 function copyCode(id) {
