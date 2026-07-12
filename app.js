@@ -251,7 +251,7 @@ async function submitGrade(e) {
 
       // Update state
       await loadData();
-      toast('✅ Nilai tersimpan', 'success');
+      toast('✅ Nilai tersimpan saja', 'success');
 
       resetForm();
       showTab('dashboard');
