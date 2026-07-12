@@ -694,10 +694,11 @@ function renderStudentProfile(records) {
     <div class="profile-header-card">
       <div class="profile-avatar-big">${(student.nama || '?').charAt(0).toUpperCase()}</div>
       <div class="profile-info">
-        <h2>${esc(student.nama)}</h2>
-        <p>NIM: ${esc(student.nim)} &nbsp;|&nbsp; ${esc(student.prodi)}</p>
+        <h2 style="color: var(--text-primary); font-weight: 900; font-size: 1.55rem;">${esc(student.nama)}</h2>
+        <p style="color: var(--text-secondary); font-size: 0.95rem; font-weight: 650;">NIM: ${esc(student.nim)} &nbsp;|&nbsp; ${esc(student.prodi)}</p>
       </div>
     </div>
+
 
 
     <div class="ipk-ips-grid">
