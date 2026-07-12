@@ -693,6 +693,44 @@ input[type=number] { -moz-appearance: textfield; }
 .autocomplete-list li:hover { background: rgba(124,111,247,0.15); }
 .autocomplete-list li small { color: var(--text-muted); font-size: 0.75rem; }
 
+/* Profil autocomplete: tampilkan lebih jelas & dekat dengan input */
+#tab-mahasiswa .profile-search-grid,
+#tab-mahasiswa .search-nim-box {
+  position: relative;
+}
+
+#auto-mahasiswa {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% - 4px);
+  z-index: 60;
+}
+
+#tab-mahasiswa .autocomplete-list {
+  z-index: 60;
+}
+
+#tab-mahasiswa .autocomplete-list li {
+  background: rgba(255,255,255,0.02);
+}
+
+#tab-mahasiswa .autocomplete-list li > div {
+  color: var(--primary-light);
+  font-weight: 900;
+  font-size: 0.95rem;
+}
+
+#tab-mahasiswa .autocomplete-list li > small {
+  color: var(--text-secondary);
+  font-weight: 650;
+}
+
+#tab-mahasiswa .autocomplete-list li:hover {
+  background: rgba(124,111,247,0.20);
+}
+
+
 /* Autocomplete khusus profil mahasiswa (agar tetap muncul di bawah input) */
 #auto-mahasiswa-nim,
 #auto-mahasiswa-nama {

@@ -562,8 +562,10 @@ function searchByMahasiswa() {
   if (autoList) {
     autoList.innerHTML = matches.map(s => `
       <li onclick="selectStudentByNIM('${esc(s.nim)}')">
-        <div style="font-weight:700">${esc(s.nama)}</div>
-        <small>${esc(s.nim)} — ${esc(s.prodi)}</small>
+        <div>
+          <span style="color: var(--primary-light); font-weight: 950; font-size: 1rem;">${esc(s.nama)}</span>
+        </div>
+        <small style="color: var(--text-secondary); font-weight: 750;">${esc(s.nim)} — ${esc(s.prodi)}</small>
       </li>
     `).join('');
     autoList.style.display = 'block';
