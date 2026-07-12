@@ -12,8 +12,9 @@ let sortKey = null;
 let sortAsc = true;
 let pendingDeleteId = null;
 
-// Ambil API URL dari localStorage (default bisa diambil dari input bila kosong)
+// Ambil API URL dari localStorage
 let API_URL = localStorage.getItem('sinilai_api_url') || '';
+
 
 // ── INIT ───────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -219,6 +220,11 @@ async function submitGrade(e) {
       return;
     }
 
+    if (!API_URL) {
+      toast('❌ Mode lokal dinonaktifkan. Konfigurasikan URL Google Sheets dulu.', 'error');
+      return;
+    }
+
     const nilaiAkhir = calcNilaiAkhir(quiz, uts, uas);
     const huruf      = nilaiToHuruf(nilaiAkhir);
     const bobot      = hurufToBobot(huruf);
@@ -235,28 +241,6 @@ async function submitGrade(e) {
       quiz, uts, uas,
       nilaiAkhir, huruf, bobot
     };
-
-    if (!API_URL) {
-      // Fallback: simpan ke localStorage supaya tombol Simpan Nilai tetap berfungsi
-      const now = Date.now();
-      const localPayload = {
-        id: 'local_' + now,
-        timestamp: new Date(now).toISOString(),
-        ...payload,
-      };
-
-      const existing = getLocalData();
-      existing.push(localPayload);
-      setLocalData(existing);
-
-      // Update state
-      await loadData();
-      toast('✅ Nilai tersimpan', 'success');
-
-      resetForm();
-      showTab('dashboard');
-      return;
-    }
 
     // Kirim ke Google Sheets
     await postToSheets({ action: 'addGrade', ...payload });
@@ -275,6 +259,7 @@ async function submitGrade(e) {
   }
 }
 
+
 function resetForm() {
   document.getElementById('grade-form').reset();
   updatePreview();
@@ -283,7 +268,10 @@ function resetForm() {
 // ── LOAD DATA ──────────────────────────────────
 async function loadData() {
   try {
-    if (API_URL) {
+    if (!API_URL) {
+      toast('❌ Mode lokal dinonaktifkan. Konfigurasikan URL Google Sheets dulu.', 'error');
+      allData = [];
+    } else {
       const res = await fetch(API_URL + '?action=getGrades');
       const json = await res.json();
       if (json.success) {
@@ -306,19 +294,14 @@ async function loadData() {
           huruf:      row.huruf,
           bobot:      parseFloat(row.bobot) || 0,
         }));
+      } else {
+        allData = [];
       }
-    } else {
-      allData = getLocalData();
     }
   } catch (err) {
-    // Jangan sembunyikan error kalau API sudah terkonfigurasi
-    if (API_URL) {
-      toast('❌ Gagal mengambil data dari Google Sheets: ' + err.message, 'error');
-      console.warn('Gagal fetch Google Sheets:', err.message);
-      allData = [];
-    } else {
-      allData = getLocalData();
-    }
+    toast('❌ Gagal mengambil data dari Google Sheets: ' + err.message, 'error');
+    console.warn('Gagal fetch Google Sheets:', err.message);
+    allData = [];
   }
 
   filteredData = [...allData];
@@ -326,15 +309,6 @@ async function loadData() {
   renderMainTable();
 }
 
-
-// ── LOCAL STORAGE HELPERS ──────────────────────
-function getLocalData() {
-  try { return JSON.parse(localStorage.getItem('sinilai_data') || '[]'); }
-  catch { return []; }
-}
-function setLocalData(data) {
-  localStorage.setItem('sinilai_data', JSON.stringify(data));
-}
 
 // ── GOOGLE SHEETS POST ─────────────────────────
 async function postToSheets(payload) {
