@@ -251,7 +251,7 @@ async function submitGrade(e) {
 
       // Update state
       await loadData();
-      toast('✅ Nilai tersimpan (mode localStorage - belum pakai Google Sheets)', 'success');
+      toast('✅ Nilai tersimpan', 'success');
 
       resetForm();
       showTab('dashboard');
