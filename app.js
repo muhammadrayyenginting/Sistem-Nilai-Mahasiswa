@@ -638,53 +638,43 @@ function searchByNama(qOverride) {
 }
 
 function searchByNIM(qOverride) {
+  // Kompatibel dengan index.html saat ini: pakai input #search-nim
   const qEl = document.getElementById('search-nim');
-  const q = (qOverride !== undefined ? String(qOverride) : qEl.value).trim();
-
-
   const profileEl = document.getElementById('student-profile');
   const emptyEl   = document.getElementById('nim-empty');
-  const btnReset  = document.getElementById('reset-student-btn');
-  const autoList  = document.getElementById('auto-mahasiswa-nim');
 
-
+  const q = (qOverride !== undefined ? String(qOverride) : (qEl ? qEl.value : '')).trim();
 
   if (!q) {
-    const autoNama = document.getElementById('auto-mahasiswa-nama');
-    if (autoList) { autoList.innerHTML = ''; autoList.style.display = 'none'; }
-    if (autoNama) { autoNama.innerHTML = ''; autoNama.style.display = 'none'; }
-
     if (profileEl) profileEl.className = 'student-profile-hidden';
-    if (emptyEl) { emptyEl.style.display = 'flex'; }
-    if (btnReset) btnReset.style.display = 'none';
+    if (emptyEl) {
+      emptyEl.innerHTML = emptyEl.dataset.emptyHtml || emptyEl.innerHTML;
+      emptyEl.style.display = 'flex';
+    }
     return;
-  }
-
-
-  // kalau user masih mengetik (tanpa override), tampilkan autocomplete
-  if (qOverride === undefined && autoList) {
-    renderMahasiswaAutocompleteByNIM(q);
   }
 
   const query = q.toLowerCase();
-
-  // Cari berdasarkan NIM saja
-  const records = allData.filter(r => (r.nim || '').toLowerCase().includes(query));
-
-
+  // Cari berdasarkan NIM atau nama
+  const records = allData.filter(r => {
+    const nim = (r.nim || '').toLowerCase();
+    const nama = (r.nama || '').toLowerCase();
+    return nim.includes(query) || nama.includes(query);
+  });
 
   if (records.length === 0) {
-    profileEl.className = 'student-profile-hidden';
-    emptyEl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" width="64" height="64" opacity="0.3"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/><path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><p>Mahasiswa "<strong>${esc(q)}</strong>" tidak ditemukan.</p>`;
-    emptyEl.style.display = 'flex';
+    if (profileEl) profileEl.className = 'student-profile-hidden';
+    if (emptyEl) {
+      emptyEl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" width="64" height="64" opacity="0.3"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/><path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><p>Mahasiswa "<strong>${esc(q)}</strong>" tidak ditemukan.</p>`;
+      emptyEl.style.display = 'flex';
+    }
     return;
   }
 
-  emptyEl.style.display = 'none';
-  if (btnReset) btnReset.style.display = 'inline-flex';
-  if (autoList) autoList.innerHTML = '';
+  if (emptyEl) emptyEl.style.display = 'none';
   renderStudentProfile(records);
 }
+
 
 
 
