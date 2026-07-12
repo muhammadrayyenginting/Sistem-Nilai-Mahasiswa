@@ -14,7 +14,8 @@ let pendingDeleteId = null;
 
 // Mode data: default "local" supaya bisa simpan data & nilai di web tanpa perlu API URL.
 // Nanti bisa diganti ke "sheets".
-let DATA_MODE = localStorage.getItem('sinilai_data_mode') || 'local';
+localStorage.setItem('sinilai_data_mode', 'sheets');
+let DATA_MODE = 'sheets';
 
 // Ambil API URL dari localStorage (hanya dipakai jika DATA_MODE === 'sheets')
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxBumno3C-2w8wbTcFkniUJ9XBmIzp3bYKaTqLgZPmTf3GXdhgNsVPId09lQDrfLRw1aA/exec';
