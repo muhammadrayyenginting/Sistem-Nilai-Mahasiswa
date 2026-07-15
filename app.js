@@ -12,10 +12,11 @@ let sortKey = null;
 let sortAsc = true;
 let pendingDeleteId = null;
 
-// Mode data: default "local" supaya bisa simpan data & nilai di web tanpa perlu API URL.
-// Nanti bisa diganti ke "sheets".
+// Mode data: harus online ke Google Sheets agar input semua orang langsung terlihat.
+// Pastikan Apps Script sudah di-deploy dan permission-nya "Anyone".
 localStorage.setItem('sinilai_data_mode', 'sheets');
 let DATA_MODE = 'sheets';
+
 
 // Ambil API URL dari localStorage (hanya dipakai jika DATA_MODE === 'sheets')
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxBumno3C-2w8wbTcFkniUJ9XBmIzp3bYKaTqLgZPmTf3GXdhgNsVPId09lQDrfLRw1aA/exec';
@@ -31,8 +32,94 @@ if (!localStorage.getItem(LS_GRADES_KEY)) {
 
 
 
+// ── AUTH ───────────────────────────────────────
+const AUTH_USER = 'admin';
+const AUTH_PASS = 'admin123';
+const LS_AUTH_KEY = 'sinilai_logged_in';
+
+function isAuthed() {
+  return localStorage.getItem(LS_AUTH_KEY) === 'true';
+}
+
+function setAuthed(v) {
+  localStorage.setItem(LS_AUTH_KEY, v ? 'true' : 'false');
+  applyAuthUI();
+}
+
+function applyAuthUI() {
+  const body = document.body;
+  const authed = isAuthed();
+  if (authed) {
+    body.classList.add('authed');
+  } else {
+    body.classList.remove('authed');
+  }
+
+  // Jika logout, reset error/inputs (biar rapi)
+  if (!authed) {
+    const errEl = document.getElementById('login-error');
+    if (errEl) errEl.style.display = 'none';
+  }
+}
+
+function handleLogin(e) {
+  e.preventDefault();
+
+  const username = (document.getElementById('login-username')?.value || '').trim();
+  const password = (document.getElementById('login-password')?.value || '').trim();
+
+  const errEl = document.getElementById('login-error');
+  if (errEl) {
+    errEl.style.display = 'none';
+    errEl.textContent = '';
+  }
+
+  if (username === AUTH_USER && password === AUTH_PASS) {
+    setAuthed(true);
+    // Tampilkan dashboard default
+    try { showTab('dashboard'); } catch (_) {}
+    toast('✅ Login berhasil!', 'success');
+    // focus cepat
+    document.getElementById('main-content')?.focus?.();
+  } else {
+    if (errEl) {
+      errEl.textContent = 'Username atau password salah.';
+      errEl.style.display = 'block';
+    }
+    toast('❌ Login gagal', 'error');
+  }
+}
+
+function logout() {
+  setAuthed(false);
+  try {
+    // Pastikan tab & render ulang setelah login kembali
+    document.querySelectorAll('.tab-section').forEach(s => s.classList.remove('active'));
+  } catch (_) {}
+  toast('👋 Logout berhasil', 'info');
+}
+
+function fillDemoLogin() {
+  const u = document.getElementById('login-username');
+  const p = document.getElementById('login-password');
+  if (u) u.value = AUTH_USER;
+  if (p) p.value = AUTH_PASS;
+}
+
 // ── INIT ───────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  // auth shell
+  applyAuthUI();
+
+  // jika belum login, jangan jalankan loadData/UI agar dashboard tidak muncul flicker
+  if (!isAuthed()) {
+    const emptyEl = document.getElementById('nim-empty');
+    if (emptyEl && !emptyEl.dataset.emptyHtml) {
+      emptyEl.dataset.emptyHtml = emptyEl.innerHTML;
+    }
+    return;
+  }
+
   // simpan template empty-state untuk reset
   const emptyEl = document.getElementById('nim-empty');
   if (emptyEl && !emptyEl.dataset.emptyHtml) {
@@ -50,6 +137,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Konfirmasi hapus
   document.getElementById('confirm-delete-btn').addEventListener('click', confirmDelete);
+
+  // Set default tab agar konsisten setelah login
+  showTab('dashboard');
+
+  // Enable preview realtime (optional)
+  const quiz = document.getElementById('f-quiz');
+  if (quiz) updatePreview();
+
+  // NOTE: init lanjutan logic app ada di bawah file.
 });
 
 
