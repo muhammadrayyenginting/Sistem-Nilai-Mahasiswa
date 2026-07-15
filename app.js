@@ -361,15 +361,27 @@ async function submitGrade(e) {
       }
       const { id, timestamp, ...payloadSheets } = payload;
 
-      // Tambah parameter anti-cache biar refresh benar-benar memanggil ulang server
-      // (kadang browser/proxy cache respons fetch)
-      payloadSheets._clientNonce = Date.now();
+      // Tambah parameter anti-cache
+      const nonce = Date.now();
+      payloadSheets._clientNonce = nonce;
 
       try {
         await postToSheets({ action: 'addGrade', ...payloadSheets });
 
-        // Paksa tunggu sebentar agar data appendRow sudah tersinkron ke getDataRange()
-        await new Promise(r => setTimeout(r, 400));
+        // Tunggu dan retry getGrades beberapa kali agar appendRow tersinkron
+        // (Google Sheets kadang butuh beberapa ratus ms hingga beberapa detik)
+        let loaded = false;
+        for (let i = 0; i < 5; i++) {
+          try {
+            await new Promise(r => setTimeout(r, 650));
+            await loadData();
+            loaded = true;
+            break;
+          } catch (_) {}
+        }
+        if (!loaded) {
+          await loadData();
+        }
       } catch (err) {
         toast('❌ Gagal POST ke Sheets: ' + (err?.message || err), 'error');
         throw err;
