@@ -371,12 +371,14 @@ const { id, timestamp, ...payloadSheets } = payload;
 
     // Update state
     await loadData();
-    toast('✅ Nilai berhasil disimpan!', 'success');
+
+    // Debug cepat: pastikan data benar-benar ikut bertambah
+    // (akan tampil di toast biar terlihat tanpa buka console)
+    toast(`✅ Nilai berhasil disimpan! Total data: ${allData.length}`, 'success');
+
     resetForm();
 
-    // Pastikan dashboard langsung rerender dengan data terbaru
-    // (loadData() memang memanggil renderDashboard, tapi showTab('dashboard')
-    // bisa tidak ke-trigger di beberapa kondisi UI/animasi)
+    // Paksa dashboard benar-benar update
     document.querySelectorAll('.tab-section').forEach(s => s.classList.remove('active'));
     const dashboardSection = document.getElementById('tab-dashboard');
     const navDashboard = document.getElementById('nav-dashboard');
@@ -384,6 +386,8 @@ const { id, timestamp, ...payloadSheets } = payload;
     if (navDashboard) navDashboard.classList.add('active');
 
     renderDashboard();
+    renderMainTable();
+
 
 
   } catch (err) {
