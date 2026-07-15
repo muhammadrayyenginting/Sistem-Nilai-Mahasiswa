@@ -12,10 +12,13 @@ let sortKey = null;
 let sortAsc = true;
 let pendingDeleteId = null;
 
-// Mode data: harus online ke Google Sheets agar input semua orang langsung terlihat.
+// Mode data: default ke sheets.
 // Pastikan Apps Script sudah di-deploy dan permission-nya "Anyone".
-localStorage.setItem('sinilai_data_mode', 'sheets');
-let DATA_MODE = 'sheets';
+// Jika API URL belum tersimpan/terkonfigurasi, tampilkan error yang jelas di UI.
+const storedMode = localStorage.getItem('sinilai_data_mode');
+let DATA_MODE = storedMode || 'sheets';
+localStorage.setItem('sinilai_data_mode', DATA_MODE);
+
 
 
 // Ambil API URL dari localStorage (hanya dipakai jika DATA_MODE === 'sheets')
@@ -350,13 +353,15 @@ async function submitGrade(e) {
     if (DATA_MODE === 'local') {
       saveToLocal(payload);
     } else {
-      if (!API_URL) {
-        toast('❌ Mode sheets dinonaktifkan. URL Google Sheets belum terkonfigurasi.', 'error');
+      // DATA_MODE = sheets
+      if (!API_URL || String(API_URL).trim().length === 0) {
+        toast('❌ URL Apps Script belum terkonfigurasi. Setel di menu API Setup.', 'error');
         return;
       }
       const { id, timestamp, ...payloadSheets } = payload;
       await postToSheets({ action: 'addGrade', ...payloadSheets });
     }
+
 
     // Update state
     await loadData();
