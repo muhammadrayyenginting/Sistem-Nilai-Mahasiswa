@@ -373,7 +373,18 @@ const { id, timestamp, ...payloadSheets } = payload;
     await loadData();
     toast('✅ Nilai berhasil disimpan!', 'success');
     resetForm();
-    showTab('dashboard');
+
+    // Pastikan dashboard langsung rerender dengan data terbaru
+    // (loadData() memang memanggil renderDashboard, tapi showTab('dashboard')
+    // bisa tidak ke-trigger di beberapa kondisi UI/animasi)
+    document.querySelectorAll('.tab-section').forEach(s => s.classList.remove('active'));
+    const dashboardSection = document.getElementById('tab-dashboard');
+    const navDashboard = document.getElementById('nav-dashboard');
+    if (dashboardSection) dashboardSection.classList.add('active');
+    if (navDashboard) navDashboard.classList.add('active');
+
+    renderDashboard();
+
 
   } catch (err) {
     toast('❌ Gagal menyimpan: ' + err.message, 'error');
