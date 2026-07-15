@@ -359,9 +359,17 @@ async function submitGrade(e) {
         toast('❌ URL Apps Script belum terkonfigurasi. Setel di menu API Setup.', 'error');
         return;
       }
-const { id, timestamp, ...payloadSheets } = payload;
+      const { id, timestamp, ...payloadSheets } = payload;
+
+      // Tambah parameter anti-cache biar refresh benar-benar memanggil ulang server
+      // (kadang browser/proxy cache respons fetch)
+      payloadSheets._clientNonce = Date.now();
+
       try {
         await postToSheets({ action: 'addGrade', ...payloadSheets });
+
+        // Paksa tunggu sebentar agar data appendRow sudah tersinkron ke getDataRange()
+        await new Promise(r => setTimeout(r, 400));
       } catch (err) {
         toast('❌ Gagal POST ke Sheets: ' + (err?.message || err), 'error');
         throw err;
