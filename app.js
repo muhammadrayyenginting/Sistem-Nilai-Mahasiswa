@@ -42,8 +42,10 @@ if (!localStorage.getItem(LS_GRADES_KEY)) {
 
 
 // ── AUTH ───────────────────────────────────────
-const AUTH_USER = 'admin';
-const AUTH_PASS = 'admin123';
+// Allow free login (no credential check)
+// Jika ingin kembali pakai login admin, ganti logic di handleLogin.
+const AUTH_USER = null;
+const AUTH_PASS = null;
 
 // Pastikan fungsi global agar inline onsubmit/onclick di index.html bisa memanggil
 // (beberapa environment bisa tidak mengekspos fungsi lokal default)
@@ -118,6 +120,16 @@ function handleLogin(e) {
   }
 
   debugAuthState(username, password);
+
+  // Free login: apa pun username/password, anggap sukses.
+  // Tetap siapkan jika suatu saat dikembalikan ke mode admin.
+  if (AUTH_USER === null && AUTH_PASS === null) {
+    setAuthed(true);
+    try { showTab('dashboard'); } catch (_) {}
+    toast('✅ Login berhasil!', 'success');
+    document.getElementById('main-content')?.focus?.();
+    return;
+  }
 
   if (username === AUTH_USER && password === AUTH_PASS) {
     setAuthed(true);
