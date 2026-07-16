@@ -42,10 +42,10 @@ if (!localStorage.getItem(LS_GRADES_KEY)) {
 
 
 // ── AUTH ───────────────────────────────────────
-// Allow free login (no credential check)
-// Jika ingin kembali pakai login admin, ganti logic di handleLogin.
+// Allow free access (no login page)
 const AUTH_USER = null;
 const AUTH_PASS = null;
+
 
 // Pastikan fungsi global agar inline onsubmit/onclick di index.html bisa memanggil
 // (beberapa environment bisa tidak mengekspos fungsi lokal default)
