@@ -424,20 +424,6 @@ async function submitGrade(e) {
 
     resetForm();
 
-    // Paksa render ulang dashboard + tabel sesuai tab aktif
-    // (hindari ada render ganda yang bisa membuat UI terlewat)
-    const activeDashboard = document.getElementById('tab-dashboard')?.classList?.contains('active');
-    const activeRiwayat = document.getElementById('tab-riwayat')?.classList?.contains('active');
-
-    if (activeDashboard) {
-      renderDashboard();
-    } else if (activeRiwayat) {
-      renderMainTable();
-    } else {
-      // default: render dashboard siap saat user kembali
-      renderDashboard();
-      renderMainTable();
-    }
 
 
 
@@ -525,12 +511,16 @@ function startRealtimeSyncDeprecated() {
 }
 
 // ── SYNC UI (wajib ada agar dashboard selalu update) ─────────────
-async function refreshUIFromLatestData() {
+function refreshUIFromLatestData() {
   // 1) untuk mode local: langsung loadData (langsung dari localStorage)
   // 2) untuk mode sheets: lakukan loadData beberapa kali (Sheets append bisa delay)
-  try {
+  // Catatan: refresh ini harus benar-benar mem-render dashboard & riwayat
+  // agar pengguna melihat perubahan langsung, meskipun tab saat ini bukan dashboard.
+  return (async () => {
     if (DATA_MODE === 'local') {
       await loadData();
+      renderDashboard();
+      renderMainTable();
       return;
     }
 
@@ -544,22 +534,11 @@ async function refreshUIFromLatestData() {
         break;
       } catch (_) {}
     }
-    if (!ok) {
-      await loadData();
-    }
-  } finally {
-    const activeDashboard = document.getElementById('tab-dashboard')?.classList?.contains('active');
-    const activeRiwayat   = document.getElementById('tab-riwayat')?.classList?.contains('active');
+    if (!ok) await loadData();
 
-    // Render ulang spesifik sesuai tab aktif
-    if (activeDashboard) renderDashboard();
-    else if (activeRiwayat) renderMainTable();
-    else {
-      // fallback: render keduanya
-      renderDashboard();
-      renderMainTable();
-    }
-  }
+    renderDashboard();
+    renderMainTable();
+  })();
 }
 
 
