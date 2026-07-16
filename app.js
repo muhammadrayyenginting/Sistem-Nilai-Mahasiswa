@@ -151,7 +151,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Muat data pertama kali
-  loadData();
+  await loadData();
+
+  // Pastikan setelah load awal, dashboard & riwayat benar-benar ter-render
+  // (menghindari kasus loadData async selesai setelah UI sudah tampil)
+  renderDashboard();
+  renderMainTable();
 
   // Real-time sync:
   // - local: pakai storage event (instant antar tab)
@@ -382,8 +387,13 @@ async function submitGrade(e) {
       nilaiAkhir, huruf, bobot
     };
 
-    if (DATA_MODE === 'local') {
-      saveToLocal(payload);
+    // Pastikan SEMUA input juga tersimpan ke localStorage,
+    // supaya dashboard selalu update meskipun mode sheets dipakai.
+    // (localStorage adalah source-of-truth UI lokal)
+    saveToLocal(payload);
+
+    if (DATA_MODE === 'local') { 
+      // sudah tersimpan ke localStorage di atas
     } else {
       // DATA_MODE = sheets
       if (!API_URL || String(API_URL).trim().length === 0) {
