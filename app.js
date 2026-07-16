@@ -45,6 +45,10 @@ if (!localStorage.getItem(LS_GRADES_KEY)) {
 const AUTH_USER = 'admin';
 const AUTH_PASS = 'admin123';
 
+// Pastikan fungsi global agar inline onsubmit/onclick di index.html bisa memanggil
+// (beberapa environment bisa tidak mengekspos fungsi lokal default)
+// NOTE: window.handleLogin/window.logout di-assign setelah fungsi didefinisikan (lihat akhir file)
+
 // Debug login singkat (tidak menampilkan password)
 // Biar saat error user, kita bisa tahu kenapa tidak masuk.
 function debugAuthState(username, password) {
