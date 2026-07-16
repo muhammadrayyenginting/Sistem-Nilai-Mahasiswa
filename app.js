@@ -69,6 +69,15 @@ function applyAuthUI() {
 function handleLogin(e) {
   e.preventDefault();
 
+  // Hapus kredensial dari URL kalau ada (contoh: ?username=...&password=...)
+  // Pakai URL object biar aman untuk skenario path berbeda.
+  try {
+    const url = new URL(window.location.href);
+    url.search = '';
+    window.history.replaceState({}, document.title, url.toString());
+  } catch (_) {}
+
+
   const username = (document.getElementById('login-username')?.value || '').trim();
   const password = (document.getElementById('login-password')?.value || '').trim();
 
@@ -136,8 +145,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (API_URL) urlInput.value = API_URL;
   }
 
-  // Muat data
+  // Muat data pertama kali
   loadData();
+
+  // Real-time sync (polling) supaya device lain ikut update
+  startRealtimeSync();
+
 
   // Konfirmasi hapus
   document.getElementById('confirm-delete-btn').addEventListener('click', confirmDelete);
@@ -405,6 +418,12 @@ async function submitGrade(e) {
     if (dashboardSection) dashboardSection.classList.add('active');
     if (navDashboard) navDashboard.classList.add('active');
 
+    // Pastikan DOM statdashboard ada sebelum render
+    const statTotalEl = document.getElementById('stat-total');
+    if (!statTotalEl) {
+      console.warn('stat elements not found. stat-total missing');
+    }
+
     renderDashboard();
     renderMainTable();
 
@@ -456,6 +475,44 @@ function deleteFromLocal(id) {
 }
 
 // ── LOAD DATA ──────────────────────────────────
+let realtimeTimer = null;
+let lastRealtimeNonce = null;
+
+function startRealtimeSync() {
+  // Hindari multiple interval saat reload/lihat ulang
+  if (realtimeTimer) clearInterval(realtimeTimer);
+
+  // Stop otomatis kalau user logout (anti polling saat tidak semestinya)
+  realtimeTimer = setInterval(async () => {
+    try {
+      if (!isAuthed()) return;
+
+      // Default: setiap 5 detik cek data terbaru
+    } catch (_) {}
+
+    // eslint-disable-next-line no-undef
+    try {
+      await loadData();
+    } catch (e) {
+      // jangan spam toast; cukup diam
+    }
+  }, 5000);
+}
+
+function stopRealtimeSync() {
+  if (realtimeTimer) clearInterval(realtimeTimer);
+  realtimeTimer = null;
+}
+
+// helper: tetap kompatibel jika ada pemanggilan lama
+async function _noop() {}
+
+function startRealtimeSyncDeprecated() {
+  // (placeholder) tidak dipakai
+}
+
+
+
 async function loadData() {
   try {
     if (DATA_MODE === 'local') {
@@ -483,7 +540,8 @@ async function loadData() {
         toast('❌ Mode sheets dinonaktifkan. URL Google Sheets belum terkonfigurasi.', 'error');
         allData = [];
       } else {
-        const res = await fetch(API_URL + '?action=getGrades');
+        const nonce = Date.now();
+        const res = await fetch(API_URL + '?action=getGrades&_nonce=' + nonce);
         const json = await res.json();
         if (json.success) {
           allData = json.data.map(row => ({
@@ -564,6 +622,14 @@ function renderDashboard() {
 
   const mks = [...new Set(allData.map(d => d.kodeMK))];
   document.getElementById('stat-mk').textContent = mks.length;
+
+  const dosens = [...new Set(allData
+    .map(d => (d.dosen || '').trim())
+    .filter(Boolean)
+  )];
+  const statDosen = document.getElementById('stat-dosen');
+  if (statDosen) statDosen.textContent = dosens.length;
+
 
   if (allData.length > 0) {
     const avgAkhir = allData.reduce((s, d) => s + d.nilaiAkhir, 0) / allData.length;
