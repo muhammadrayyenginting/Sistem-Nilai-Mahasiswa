@@ -67,7 +67,11 @@ function isAuthed() {
 }
 
 function setAuthed(v) {
-  localStorage.setItem(LS_AUTH_KEY, v ? 'true' : 'false');
+  try {
+    localStorage.setItem(LS_AUTH_KEY, v ? 'true' : 'false');
+  } catch (e) {
+    // ignore, but still update UI
+  }
   applyAuthUI();
 }
 
@@ -89,6 +93,7 @@ function applyAuthUI() {
 
 function handleLogin(e) {
   e.preventDefault();
+
 
   // Hapus kredensial dari URL kalau ada (contoh: ?username=...&password=...)
   // Pakai URL object biar aman untuk skenario path berbeda.
@@ -136,6 +141,7 @@ function logout() {
 }
 
 function fillDemoLogin() {
+  // input sudah disembunyikan, tetap isi agar kompatibel dengan handleLogin
   const u = document.getElementById('login-username');
   const p = document.getElementById('login-password');
   if (u) u.value = AUTH_USER;
@@ -144,64 +150,71 @@ function fillDemoLogin() {
 
 // ── INIT ───────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  // auth shell
-  applyAuthUI();
+  (async () => {
+    // auth shell
+    applyAuthUI();
 
-  // jika belum login, jangan jalankan loadData/UI agar dashboard tidak muncul flicker
-  if (!isAuthed()) {
+    // jika belum login, jangan jalankan loadData/UI agar dashboard tidak muncul flicker
+    if (!isAuthed()) {
+      const emptyEl = document.getElementById('nim-empty');
+      if (emptyEl && !emptyEl.dataset.emptyHtml) {
+        emptyEl.dataset.emptyHtml = emptyEl.innerHTML;
+      }
+      return;
+    }
+
+    // simpan template empty-state untuk reset
     const emptyEl = document.getElementById('nim-empty');
     if (emptyEl && !emptyEl.dataset.emptyHtml) {
       emptyEl.dataset.emptyHtml = emptyEl.innerHTML;
     }
-    return;
-  }
 
-  // simpan template empty-state untuk reset
-  const emptyEl = document.getElementById('nim-empty');
-  if (emptyEl && !emptyEl.dataset.emptyHtml) {
-    emptyEl.dataset.emptyHtml = emptyEl.innerHTML;
-  }
+    // Jika mode sheets, sync URL API ke input (kalau ada)
+    const urlInput = document.getElementById('api-url-input');
+    if (urlInput && DATA_MODE === 'sheets') {
+      if (API_URL) urlInput.value = API_URL;
+    }
 
-  // Jika mode sheets, sync URL API ke input (kalau ada)
-  const urlInput = document.getElementById('api-url-input');
-  if (urlInput && DATA_MODE === 'sheets') {
-    if (API_URL) urlInput.value = API_URL;
-  }
+    // Muat data pertama kali
+    await loadData();
 
-  // Muat data pertama kali
-  await loadData();
+    // Pastikan setelah load awal, dashboard & riwayat benar-benar ter-render
+    // (menghindari kasus loadData async selesai setelah UI sudah tampil)
+    renderDashboard();
+    renderMainTable();
 
-  // Pastikan setelah load awal, dashboard & riwayat benar-benar ter-render
-  // (menghindari kasus loadData async selesai setelah UI sudah tampil)
-  renderDashboard();
-  renderMainTable();
+    // Real-time sync:
+    // - local: pakai storage event (instant antar tab)
+    // - sheets: pakai polling (karena tidak ada storage event dari server)
+    startRealtimeSync();
 
-  // Real-time sync:
-  // - local: pakai storage event (instant antar tab)
-  // - sheets: pakai polling (karena tidak ada storage event dari server)
-  startRealtimeSync();
+    // Sync local antar tab browser (instant)
+    window.addEventListener('storage', (ev) => {
+      if (!ev || ev.key !== LS_GRADES_KEY) return;
+      if (!isAuthed()) return;
+      if (DATA_MODE !== 'local') return;
+      loadData();
+    });
 
-  // Sync local antar tab browser (instant)
-  window.addEventListener('storage', (ev) => {
-    if (!ev || ev.key !== LS_GRADES_KEY) return;
-    if (!isAuthed()) return;
-    if (DATA_MODE !== 'local') return;
-    loadData();
+    // Konfirmasi hapus
+    document.getElementById('confirm-delete-btn').addEventListener('click', confirmDelete);
+
+    // Set default tab agar konsisten setelah login
+    showTab('dashboard');
+
+    // Enable preview realtime (optional)
+    const quiz = document.getElementById('f-quiz');
+    if (quiz) updatePreview();
+
+    // NOTE: init lanjutan logic app ada di bawah file.
+  })().catch((err) => {
+    console.error('[SiNilai] init error:', err);
+    const errEl = document.getElementById('login-error');
+    if (errEl) {
+      errEl.textContent = 'Terjadi error saat inisialisasi aplikasi. Buka console untuk detail.';
+      errEl.style.display = 'block';
+    }
   });
-
-
-
-  // Konfirmasi hapus
-  document.getElementById('confirm-delete-btn').addEventListener('click', confirmDelete);
-
-  // Set default tab agar konsisten setelah login
-  showTab('dashboard');
-
-  // Enable preview realtime (optional)
-  const quiz = document.getElementById('f-quiz');
-  if (quiz) updatePreview();
-
-  // NOTE: init lanjutan logic app ada di bawah file.
 });
 
 
@@ -367,7 +380,7 @@ function updateBar(id, val) {
 
 // ── SUBMIT FORM ────────────────────────────────
 async function submitGrade(e) {
-  e.preventDefault();
+  if (e?.preventDefault) e.preventDefault();
   // Supaya dashboard selalu langsung update, kunci urutan refresh UI di akhir
 
   const btn = document.getElementById('submit-btn');
@@ -495,7 +508,11 @@ function loadFromLocal() {
 function saveToLocal(payload) {
   const cur = loadFromLocal();
   cur.push(payload);
-  localStorage.setItem(LS_GRADES_KEY, JSON.stringify(cur));
+  try {
+    localStorage.setItem(LS_GRADES_KEY, JSON.stringify(cur));
+  } catch (e) {
+    toast('❌ Gagal menyimpan ke localStorage (storage penuh/terblokir).', 'error');
+  }
 }
 
 function deleteFromLocal(id) {
@@ -635,6 +652,7 @@ async function loadData() {
   }
 
   filteredData = [...allData];
+  // render ulang setelah data berubah
   renderDashboard();
   renderMainTable();
 }
