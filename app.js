@@ -16,8 +16,11 @@ let pendingDeleteId = null;
 // Pastikan Apps Script sudah di-deploy dan permission-nya "Anyone".
 // Jika API URL belum tersimpan/terkonfigurasi, tampilkan error yang jelas di UI.
 // Default: gunakan lokal supaya langsung terlihat bertambah (tidak bergantung Sheets)
+// Default: agar data selalu tersimpan & muncul di halaman utama, gunakan mode lokal dulu.
+// (mode sheets hanya aktif jika user benar-benar memasang URL API.)
 const storedMode = localStorage.getItem('sinilai_data_mode');
 let DATA_MODE = storedMode || 'local';
+if (storedMode !== 'local' && storedMode !== 'sheets') DATA_MODE = 'local';
 localStorage.setItem('sinilai_data_mode', DATA_MODE);
 
 
