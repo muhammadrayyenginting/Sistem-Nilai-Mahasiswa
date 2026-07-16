@@ -15,9 +15,11 @@ let pendingDeleteId = null;
 // Mode data: default ke sheets.
 // Pastikan Apps Script sudah di-deploy dan permission-nya "Anyone".
 // Jika API URL belum tersimpan/terkonfigurasi, tampilkan error yang jelas di UI.
+// Default: gunakan lokal supaya langsung terlihat bertambah (tidak bergantung Sheets)
 const storedMode = localStorage.getItem('sinilai_data_mode');
-let DATA_MODE = storedMode || 'sheets';
+let DATA_MODE = storedMode || 'local';
 localStorage.setItem('sinilai_data_mode', DATA_MODE);
+
 
 
 
@@ -148,8 +150,19 @@ document.addEventListener('DOMContentLoaded', () => {
   // Muat data pertama kali
   loadData();
 
-  // Real-time sync (polling) supaya device lain ikut update
+  // Real-time sync:
+  // - local: pakai storage event (instant antar tab)
+  // - sheets: pakai polling (karena tidak ada storage event dari server)
   startRealtimeSync();
+
+  // Sync local antar tab browser (instant)
+  window.addEventListener('storage', (ev) => {
+    if (!ev || ev.key !== LS_GRADES_KEY) return;
+    if (!isAuthed()) return;
+    if (DATA_MODE !== 'local') return;
+    loadData();
+  });
+
 
 
   // Konfirmasi hapus
@@ -329,6 +342,8 @@ function updateBar(id, val) {
 // ── SUBMIT FORM ────────────────────────────────
 async function submitGrade(e) {
   e.preventDefault();
+  // Supaya dashboard selalu langsung update, kunci urutan refresh UI di akhir
+
   const btn = document.getElementById('submit-btn');
   btn.disabled = true;
   btn.innerHTML = '<div class="spinner" style="width:18px;height:18px;margin:0;border-width:2px;display:inline-block;vertical-align:middle"></div> Menyimpan…';
@@ -402,30 +417,28 @@ async function submitGrade(e) {
     }
 
 
-    // Update state
+    // Update state (single source of truth)
     await loadData();
 
-    // Debug cepat: pastikan data benar-benar ikut bertambah
-    // (akan tampil di toast biar terlihat tanpa buka console)
     toast(`✅ Nilai berhasil disimpan! Total data: ${allData.length}`, 'success');
 
     resetForm();
 
-    // Paksa dashboard benar-benar update
-    document.querySelectorAll('.tab-section').forEach(s => s.classList.remove('active'));
-    const dashboardSection = document.getElementById('tab-dashboard');
-    const navDashboard = document.getElementById('nav-dashboard');
-    if (dashboardSection) dashboardSection.classList.add('active');
-    if (navDashboard) navDashboard.classList.add('active');
+    // Paksa render ulang dashboard + tabel sesuai tab aktif
+    // (hindari ada render ganda yang bisa membuat UI terlewat)
+    const activeDashboard = document.getElementById('tab-dashboard')?.classList?.contains('active');
+    const activeRiwayat = document.getElementById('tab-riwayat')?.classList?.contains('active');
 
-    // Pastikan DOM statdashboard ada sebelum render
-    const statTotalEl = document.getElementById('stat-total');
-    if (!statTotalEl) {
-      console.warn('stat elements not found. stat-total missing');
+    if (activeDashboard) {
+      renderDashboard();
+    } else if (activeRiwayat) {
+      renderMainTable();
+    } else {
+      // default: render dashboard siap saat user kembali
+      renderDashboard();
+      renderMainTable();
     }
 
-    renderDashboard();
-    renderMainTable();
 
 
 
@@ -618,10 +631,12 @@ async function postToSheets(payload) {
 function renderDashboard() {
   // Stats
   const nims = [...new Set(allData.map(d => d.nim))];
-  document.getElementById('stat-total').textContent = nims.length;
+  const statTotal = document.getElementById('stat-total');
+  if (statTotal) statTotal.textContent = nims.length;
 
   const mks = [...new Set(allData.map(d => d.kodeMK))];
-  document.getElementById('stat-mk').textContent = mks.length;
+  const statMk = document.getElementById('stat-mk');
+  if (statMk) statMk.textContent = mks.length;
 
   const dosens = [...new Set(allData
     .map(d => (d.dosen || '').trim())
@@ -630,21 +645,20 @@ function renderDashboard() {
   const statDosen = document.getElementById('stat-dosen');
   if (statDosen) statDosen.textContent = dosens.length;
 
-
   if (allData.length > 0) {
-    const avgAkhir = allData.reduce((s, d) => s + d.nilaiAkhir, 0) / allData.length;
-
     const maxNilai = Math.max(...allData.map(d => d.nilaiAkhir));
-
-    document.getElementById('stat-tertinggi').textContent = maxNilai.toFixed(1);
+    const statTertinggi = document.getElementById('stat-tertinggi');
+    if (statTertinggi) statTertinggi.textContent = maxNilai.toFixed(1);
   } else {
-    document.getElementById('stat-tertinggi').textContent = '–';
+    const statTertinggi = document.getElementById('stat-tertinggi');
+    if (statTertinggi) statTertinggi.textContent = '–';
   }
-
 
   // Recent table (5 terbaru)
   const recent = [...allData].reverse().slice(0, 5);
   const tbody  = document.getElementById('recent-tbody');
+  if (!tbody) return;
+
   if (recent.length === 0) {
     tbody.innerHTML = `<tr class="empty-row"><td colspan="8">Belum ada data. <a href="#" onclick="showTab('input');return false;">Input nilai pertama →</a></td></tr>`;
     return;
@@ -662,6 +676,7 @@ function renderDashboard() {
     </tr>
   `).join('');
 }
+
 
 // ── MAIN TABLE ─────────────────────────────────
 function renderMainTable() {
