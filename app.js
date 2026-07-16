@@ -418,9 +418,9 @@ async function submitGrade(e) {
 
 
     // Update state (single source of truth)
-    await loadData();
+    await refreshUIFromLatestData();
 
-    toast(`✅ Nilai berhasil disimpan! Total data: ${allData.length}`, 'success');
+    toast(`✅ Nilai berhasil disimpan!`, 'success');
 
     resetForm();
 
@@ -522,6 +522,44 @@ async function _noop() {}
 
 function startRealtimeSyncDeprecated() {
   // (placeholder) tidak dipakai
+}
+
+// ── SYNC UI (wajib ada agar dashboard selalu update) ─────────────
+async function refreshUIFromLatestData() {
+  // 1) untuk mode local: langsung loadData (langsung dari localStorage)
+  // 2) untuk mode sheets: lakukan loadData beberapa kali (Sheets append bisa delay)
+  try {
+    if (DATA_MODE === 'local') {
+      await loadData();
+      return;
+    }
+
+    // DATA_MODE === 'sheets'
+    let ok = false;
+    for (let i = 0; i < 6; i++) {
+      try {
+        await new Promise(r => setTimeout(r, 450));
+        await loadData();
+        ok = true;
+        break;
+      } catch (_) {}
+    }
+    if (!ok) {
+      await loadData();
+    }
+  } finally {
+    const activeDashboard = document.getElementById('tab-dashboard')?.classList?.contains('active');
+    const activeRiwayat   = document.getElementById('tab-riwayat')?.classList?.contains('active');
+
+    // Render ulang spesifik sesuai tab aktif
+    if (activeDashboard) renderDashboard();
+    else if (activeRiwayat) renderMainTable();
+    else {
+      // fallback: render keduanya
+      renderDashboard();
+      renderMainTable();
+    }
+  }
 }
 
 
@@ -767,7 +805,8 @@ async function confirmDelete() {
       await postToSheets({ action: 'deleteGrade', id: pendingDeleteId });
     }
 
-    await loadData();
+    // Pastikan UI selalu pakai data terbaru (lokal maupun sheets)
+    await refreshUIFromLatestData();
     toast('🗑️ Data berhasil dihapus', 'info');
     closeModal();
   } catch (err) {
