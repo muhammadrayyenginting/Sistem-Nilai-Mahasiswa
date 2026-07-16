@@ -60,7 +60,10 @@ function debugAuthState(username, password) {
 const LS_AUTH_KEY = 'sinilai_logged_in';
 
 function isAuthed() {
-  return localStorage.getItem(LS_AUTH_KEY) === 'true';
+  // Debug: beberapa browser bisa menyimpan boolean menjadi string lain.
+  // Normalisasikan supaya autentikasi lebih robust.
+  const v = localStorage.getItem(LS_AUTH_KEY);
+  return v === 'true' || v === true;
 }
 
 function setAuthed(v) {
