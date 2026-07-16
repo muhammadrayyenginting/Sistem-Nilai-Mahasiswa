@@ -44,6 +44,19 @@ if (!localStorage.getItem(LS_GRADES_KEY)) {
 // ── AUTH ───────────────────────────────────────
 const AUTH_USER = 'admin';
 const AUTH_PASS = 'admin123';
+
+// Debug login singkat (tidak menampilkan password)
+// Biar saat error user, kita bisa tahu kenapa tidak masuk.
+function debugAuthState(username, password) {
+  // hanya log ke console jika ada
+  try {
+    console.debug('[SiNilai][auth]', {
+      username,
+      passProvided: !!password,
+      authedBefore: isAuthed(),
+    });
+  } catch (_) {}
+}
 const LS_AUTH_KEY = 'sinilai_logged_in';
 
 function isAuthed() {
@@ -91,6 +104,8 @@ function handleLogin(e) {
     errEl.style.display = 'none';
     errEl.textContent = '';
   }
+
+  debugAuthState(username, password);
 
   if (username === AUTH_USER && password === AUTH_PASS) {
     setAuthed(true);
