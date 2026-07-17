@@ -39,6 +39,59 @@ if (!localStorage.getItem(LS_GRADES_KEY)) {
   localStorage.setItem(LS_GRADES_KEY, JSON.stringify([]));
 }
 
+// ── BROADCAST CHANNEL (real-time cross-tab sync) ──────────────
+// BroadcastChannel memungkinkan semua tab/window yang membuka
+// website ini langsung menerima data baru tanpa perlu polling.
+let broadcastChannel = null;
+try {
+  broadcastChannel = new BroadcastChannel('sinilai_realtime_sync');
+  broadcastChannel.onmessage = (event) => {
+    if (!isAuthed()) return;
+    const msg = event.data;
+    if (msg && msg.type === 'DATA_CHANGED') {
+      // Reload data dari localStorage dan re-render
+      const rows = loadFromLocal();
+      allData = rows.map(mapRowToData);
+      filteredData = [...allData];
+      renderDashboard();
+      renderMainTable();
+    }
+  };
+} catch (_) {
+  // BroadcastChannel tidak tersedia di browser lama, fallback ke storage event
+}
+
+// Kirim notifikasi ke semua tab lain bahwa data berubah
+function notifyDataChanged() {
+  try {
+    if (broadcastChannel) {
+      broadcastChannel.postMessage({ type: 'DATA_CHANGED', timestamp: Date.now() });
+    }
+  } catch (_) {}
+}
+
+// ── ROW MAPPER (DRY helper) ───────────────────
+function mapRowToData(row) {
+  return {
+    id:         row.id,
+    timestamp:  row.timestamp,
+    nama:       row.nama,
+    nim:        row.nim,
+    semester:   String(row.semester),
+    prodi:      row.prodi,
+    namaMK:     row.namaMK,
+    kodeMK:     row.kodeMK,
+    sks:        parseInt(row.sks) || 0,
+    dosen:      row.dosen,
+    quiz:       parseFloat(row.quiz) || 0,
+    uts:        parseFloat(row.uts) || 0,
+    uas:        parseFloat(row.uas) || 0,
+    nilaiAkhir: parseFloat(row.nilaiAkhir) || 0,
+    huruf:      row.huruf,
+    bobot:      parseFloat(row.bobot) || 0,
+  };
+}
+
 
 
 // ── AUTH ───────────────────────────────────────
@@ -184,6 +237,21 @@ document.addEventListener('DOMContentLoaded', () => {
     if (API_URL) urlInput.value = API_URL;
   }
 
+  // Sync local antar tab browser (instant) – daftarkan SELALU
+  window.addEventListener('storage', (ev) => {
+    if (!ev || ev.key !== LS_GRADES_KEY) return;
+    if (!isAuthed()) return;
+    // Langsung reload dari localStorage dan re-render
+    const rows = loadFromLocal();
+    allData = rows.map(mapRowToData);
+    filteredData = [...allData];
+    renderDashboard();
+    renderMainTable();
+  });
+
+  // Konfirmasi hapus – daftarkan SELALU
+  document.getElementById('confirm-delete-btn')?.addEventListener('click', confirmDelete);
+
   // Hanya muat data jika sudah login
   if (isAuthed()) {
     loadData()
@@ -191,17 +259,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderDashboard();
         renderMainTable();
         startRealtimeSync();
-
-        // Sync local antar tab browser (instant)
-        window.addEventListener('storage', (ev) => {
-          if (!ev || ev.key !== LS_GRADES_KEY) return;
-          if (!isAuthed()) return;
-          if (DATA_MODE !== 'local') return;
-          loadData();
-        });
-
-        // Konfirmasi hapus
-        document.getElementById('confirm-delete-btn')?.addEventListener('click', confirmDelete);
 
         // Set default tab
         showTab('dashboard');
@@ -213,9 +270,6 @@ document.addEventListener('DOMContentLoaded', () => {
       .catch((err) => {
         console.error('[SiNilai] init error:', err);
       });
-  } else {
-    // Belum login: setup event listener untuk setelah login
-    document.getElementById('confirm-delete-btn')?.addEventListener('click', confirmDelete);
   }
 });
 
@@ -422,15 +476,23 @@ async function submitGrade(e) {
       nilaiAkhir, huruf, bobot
     };
 
-    // Pastikan SEMUA input juga tersimpan ke localStorage,
-    // supaya dashboard selalu update meskipun mode sheets dipakai.
-    // (localStorage adalah source-of-truth UI lokal)
+    // ─── LANGKAH 1: Simpan ke localStorage SEGERA ───
     saveToLocal(payload);
 
-    if (DATA_MODE === 'local') { 
-      // sudah tersimpan ke localStorage di atas
-    } else {
-      // DATA_MODE = sheets
+    // ─── LANGKAH 2: Update state allData LANGSUNG (tanpa menunggu loadData) ───
+    // Ini memastikan dashboard LANGSUNG terupdate seketika
+    allData.push(mapRowToData(payload));
+    filteredData = [...allData];
+
+    // ─── LANGKAH 3: Re-render dashboard & tabel SEGERA ───
+    renderDashboard();
+    renderMainTable();
+
+    // ─── LANGKAH 4: Notifikasi tab lain ───
+    notifyDataChanged();
+
+    // ─── LANGKAH 5: Jika mode sheets, kirim ke Google Sheets di background ───
+    if (DATA_MODE === 'sheets') {
       if (!API_URL || String(API_URL).trim().length === 0) {
         toast('❌ URL Apps Script belum terkonfigurasi. Setel di menu API Setup.', 'error');
         return;
@@ -464,17 +526,9 @@ async function submitGrade(e) {
       }
     }
 
-
-    // Update state (single source of truth)
-    await refreshUIFromLatestData();
-
     toast(`✅ Nilai berhasil disimpan!`, 'success');
 
     resetForm();
-
-
-
-
 
   } catch (err) {
     toast('❌ Gagal menyimpan: ' + err.message, 'error');
@@ -523,6 +577,8 @@ function deleteFromLocal(id) {
   const cur = loadFromLocal();
   const next = cur.filter(x => String(x.id) !== String(id));
   localStorage.setItem(LS_GRADES_KEY, JSON.stringify(next));
+  // Notifikasi tab lain bahwa data berubah
+  notifyDataChanged();
 }
 
 // ── LOAD DATA ──────────────────────────────────
@@ -533,21 +589,16 @@ function startRealtimeSync() {
   // Hindari multiple interval saat reload/lihat ulang
   if (realtimeTimer) clearInterval(realtimeTimer);
 
-  // Stop otomatis kalau user logout (anti polling saat tidak semestinya)
+  // Interval polling: setiap 3 detik cek data terbaru dari localStorage
+  // Ini menjaga dashboard tetap sinkron meskipun BroadcastChannel tidak tersedia
   realtimeTimer = setInterval(async () => {
     try {
       if (!isAuthed()) return;
-
-      // Default: setiap 5 detik cek data terbaru
-    } catch (_) {}
-
-    // eslint-disable-next-line no-undef
-    try {
       await loadData();
-    } catch (e) {
+    } catch (_) {
       // jangan spam toast; cukup diam
     }
-  }, 5000);
+  }, 3000);
 }
 
 function stopRealtimeSync() {
@@ -599,24 +650,7 @@ async function loadData() {
   try {
     if (DATA_MODE === 'local') {
       const rows = loadFromLocal();
-      allData = rows.map(row => ({
-        id:         row.id,
-        timestamp:  row.timestamp,
-        nama:       row.nama,
-        nim:        row.nim,
-        semester:   String(row.semester),
-        prodi:      row.prodi,
-        namaMK:     row.namaMK,
-        kodeMK:     row.kodeMK,
-        sks:        parseInt(row.sks) || 0,
-        dosen:      row.dosen,
-        quiz:       parseFloat(row.quiz) || 0,
-        uts:        parseFloat(row.uts) || 0,
-        uas:        parseFloat(row.uas) || 0,
-        nilaiAkhir: parseFloat(row.nilaiAkhir) || 0,
-        huruf:      row.huruf,
-        bobot:      parseFloat(row.bobot) || 0,
-      }));
+      allData = rows.map(mapRowToData);
     } else {
       if (!API_URL) {
         toast('❌ Mode sheets dinonaktifkan. URL Google Sheets belum terkonfigurasi.', 'error');
@@ -626,24 +660,7 @@ async function loadData() {
         const res = await fetch(API_URL + '?action=getGrades&_nonce=' + nonce);
         const json = await res.json();
         if (json.success) {
-          allData = json.data.map(row => ({
-            id:         row.id,
-            timestamp:  row.timestamp,
-            nama:       row.nama,
-            nim:        row.nim,
-            semester:   String(row.semester),
-            prodi:      row.prodi,
-            namaMK:     row.namaMK,
-            kodeMK:     row.kodeMK,
-            sks:        parseInt(row.sks) || 0,
-            dosen:      row.dosen,
-            quiz:       parseFloat(row.quiz) || 0,
-            uts:        parseFloat(row.uts) || 0,
-            uas:        parseFloat(row.uas) || 0,
-            nilaiAkhir: parseFloat(row.nilaiAkhir) || 0,
-            huruf:      row.huruf,
-            bobot:      parseFloat(row.bobot) || 0,
-          }));
+          allData = json.data.map(mapRowToData);
         } else {
           allData = [];
         }
@@ -697,28 +714,69 @@ async function postToSheets(payload) {
   return json;
 }
 
+// ── ANIMATED COUNTER ──────────────────────────
+// Animasi angka naik/turun di stat card untuk efek real-time
+function animateStatValue(el, newValue, isFloat = false) {
+  if (!el) return;
+  const currentText = el.textContent;
+  const currentValue = isFloat ? parseFloat(currentText) : parseInt(currentText);
+  
+  if (isNaN(currentValue) || currentText === '–') {
+    el.textContent = isFloat ? newValue.toFixed(1) : newValue;
+    el.classList.add('stat-updated');
+    setTimeout(() => el.classList.remove('stat-updated'), 600);
+    return;
+  }
+  
+  if (currentValue === (isFloat ? parseFloat(newValue.toFixed(1)) : newValue)) return;
+  
+  // Animasi counting
+  const diff = newValue - currentValue;
+  const steps = Math.min(Math.abs(diff) * 2, 20);
+  const duration = 400; // ms
+  const stepTime = duration / steps;
+  let step = 0;
+  
+  el.classList.add('stat-updated');
+  
+  const counter = setInterval(() => {
+    step++;
+    const progress = step / steps;
+    // easeOutCubic
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const val = currentValue + diff * eased;
+    el.textContent = isFloat ? val.toFixed(1) : Math.round(val);
+    
+    if (step >= steps) {
+      clearInterval(counter);
+      el.textContent = isFloat ? newValue.toFixed(1) : newValue;
+      setTimeout(() => el.classList.remove('stat-updated'), 300);
+    }
+  }, stepTime);
+}
+
 // ── DASHBOARD ─────────────────────────────────
 function renderDashboard() {
   // Stats
-  const nims = [...new Set(allData.map(d => d.nim))];
+  const nims = [...new Set(allData.map(d => d.nim).filter(Boolean))];
   const statTotal = document.getElementById('stat-total');
-  if (statTotal) statTotal.textContent = nims.length;
+  animateStatValue(statTotal, nims.length);
 
-  const mks = [...new Set(allData.map(d => d.kodeMK))];
+  const mks = [...new Set(allData.map(d => d.kodeMK).filter(Boolean))];
   const statMk = document.getElementById('stat-mk');
-  if (statMk) statMk.textContent = mks.length;
+  animateStatValue(statMk, mks.length);
 
   const dosens = [...new Set(allData
     .map(d => (d.dosen || '').trim())
     .filter(Boolean)
   )];
   const statDosen = document.getElementById('stat-dosen');
-  if (statDosen) statDosen.textContent = dosens.length;
+  animateStatValue(statDosen, dosens.length);
 
   if (allData.length > 0) {
     const maxNilai = Math.max(...allData.map(d => d.nilaiAkhir));
     const statTertinggi = document.getElementById('stat-tertinggi');
-    if (statTertinggi) statTertinggi.textContent = maxNilai.toFixed(1);
+    animateStatValue(statTertinggi, maxNilai, true);
   } else {
     const statTertinggi = document.getElementById('stat-tertinggi');
     if (statTertinggi) statTertinggi.textContent = '–';
@@ -733,8 +791,8 @@ function renderDashboard() {
     tbody.innerHTML = `<tr class="empty-row"><td colspan="8">Belum ada data. <a href="#" onclick="showTab('input');return false;">Input nilai pertama →</a></td></tr>`;
     return;
   }
-  tbody.innerHTML = recent.map(r => `
-    <tr>
+  tbody.innerHTML = recent.map((r, idx) => `
+    <tr class="row-animate" style="animation-delay:${idx * 50}ms">
       <td><strong>${esc(r.nama)}</strong></td>
       <td><code style="font-size:0.82rem;color:var(--text-secondary)">${esc(r.nim)}</code></td>
       <td>${esc(r.namaMK)}</td>
@@ -832,13 +890,18 @@ async function confirmDelete() {
   try {
     if (DATA_MODE === 'local') {
       deleteFromLocal(pendingDeleteId);
+      // Langsung hapus dari allData untuk update instan
+      allData = allData.filter(x => String(x.id) !== String(pendingDeleteId));
+      filteredData = [...allData];
+      renderDashboard();
+      renderMainTable();
     } else {
       if (!API_URL) throw new Error('API URL belum terkonfigurasi');
       await postToSheets({ action: 'deleteGrade', id: pendingDeleteId });
+      // Pastikan UI selalu pakai data terbaru
+      await refreshUIFromLatestData();
     }
 
-    // Pastikan UI selalu pakai data terbaru (lokal maupun sheets)
-    await refreshUIFromLatestData();
     toast('🗑️ Data berhasil dihapus', 'info');
     closeModal();
   } catch (err) {
