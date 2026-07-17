@@ -27,7 +27,7 @@ localStorage.setItem('sinilai_data_mode', DATA_MODE);
 
 
 // Ambil API URL dari localStorage (hanya dipakai jika DATA_MODE === 'sheets')
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxBumno3C-2w8wbTcFkniUJ9XBmIzp3bYKaTqLgZPmTf3GXdhgNsVPId09lQDrfLRw1aA/exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbwFeWNvnlwSLrCVDV57VGqNKPVfwTo37CgaOZhlKzGqvvr9Jn_z8mLdGCNY_XBbq5cV/exec';
 
 let API_URL = localStorage.getItem('sinilai_api_url') || DEFAULT_API_URL;
 
