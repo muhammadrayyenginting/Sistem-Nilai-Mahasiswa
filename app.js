@@ -169,14 +169,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // auth shell
   applyAuthUI();
 
-  // jika belum login, jangan jalankan loadData/UI agar dashboard tidak muncul flicker
-  if (!isAuthed()) {
-    const emptyEl = document.getElementById('nim-empty');
-    if (emptyEl && !emptyEl.dataset.emptyHtml) {
-      emptyEl.dataset.emptyHtml = emptyEl.innerHTML;
-    }
-    return;
-  }
+  // Login dinonaktifkan (free access), jadi tetap jalankan init & loadData.
+  // Kalau suatu saat dipakai auth, bagian ini bisa dikembalikan.
+
 
   // simpan template empty-state untuk reset
   const emptyEl = document.getElementById('nim-empty');
