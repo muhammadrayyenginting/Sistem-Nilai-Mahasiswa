@@ -42,9 +42,8 @@ if (!localStorage.getItem(LS_GRADES_KEY)) {
 
 
 // ── AUTH ───────────────────────────────────────
-// Allow free access (no login page)
-const AUTH_USER = null;
-const AUTH_PASS = null;
+const AUTH_USER = 'admin';
+const AUTH_PASS = 'admin123';
 
 
 // Pastikan fungsi global agar inline onsubmit/onclick di index.html bisa memanggil
@@ -84,10 +83,17 @@ function setAuthed(v) {
 function applyAuthUI() {
   const body = document.body;
   const authed = isAuthed();
+  const loginEl = document.getElementById('login-section');
+  const appEl = document.getElementById('app-shell');
+
   if (authed) {
     body.classList.add('authed');
+    if (loginEl) loginEl.style.display = 'none';
+    if (appEl) appEl.style.display = '';
   } else {
     body.classList.remove('authed');
+    if (loginEl) loginEl.style.display = '';
+    if (appEl) appEl.style.display = 'none';
   }
 
   // Jika logout, reset error/inputs (biar rapi)
@@ -121,30 +127,27 @@ function handleLogin(e) {
 
   debugAuthState(username, password);
 
-  // Free login: apa pun username/password, anggap sukses.
-  // Tetap siapkan jika suatu saat dikembalikan ke mode admin.
-  if (AUTH_USER === null && AUTH_PASS === null) {
+  // Cek credentials
+  if (username === AUTH_USER && password === AUTH_PASS) {
     setAuthed(true);
     try { showTab('dashboard'); } catch (_) {}
     toast('✅ Login berhasil!', 'success');
+    // Load data setelah login
+    loadData().then(() => {
+      renderDashboard();
+      renderMainTable();
+      startRealtimeSync();
+    });
     document.getElementById('main-content')?.focus?.();
     return;
   }
 
-  if (username === AUTH_USER && password === AUTH_PASS) {
-    setAuthed(true);
-    // Tampilkan dashboard default
-    try { showTab('dashboard'); } catch (_) {}
-    toast('✅ Login berhasil!', 'success');
-    // focus cepat
-    document.getElementById('main-content')?.focus?.();
-  } else {
-    if (errEl) {
-      errEl.textContent = 'Username atau password salah.';
-      errEl.style.display = 'block';
-    }
-    toast('❌ Login gagal', 'error');
+  // Login gagal
+  if (errEl) {
+    errEl.textContent = 'Username atau password salah.';
+    errEl.style.display = 'block';
   }
+  toast('❌ Login gagal', 'error');
 }
 
 function logout() {
@@ -169,10 +172,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // auth shell
   applyAuthUI();
 
-  // Login dinonaktifkan (free access), jadi tetap jalankan init & loadData.
-  // Kalau suatu saat dipakai auth, bagian ini bisa dikembalikan.
-
-
   // simpan template empty-state untuk reset
   const emptyEl = document.getElementById('nim-empty');
   if (emptyEl && !emptyEl.dataset.emptyHtml) {
@@ -185,41 +184,39 @@ document.addEventListener('DOMContentLoaded', () => {
     if (API_URL) urlInput.value = API_URL;
   }
 
-  // Muat data pertama kali (tanpa async/await agar tidak error di runtime)
-  loadData()
-    .then(() => {
-      renderDashboard();
-      renderMainTable();
+  // Hanya muat data jika sudah login
+  if (isAuthed()) {
+    loadData()
+      .then(() => {
+        renderDashboard();
+        renderMainTable();
+        startRealtimeSync();
 
-      // Real-time sync:
-      startRealtimeSync();
+        // Sync local antar tab browser (instant)
+        window.addEventListener('storage', (ev) => {
+          if (!ev || ev.key !== LS_GRADES_KEY) return;
+          if (!isAuthed()) return;
+          if (DATA_MODE !== 'local') return;
+          loadData();
+        });
 
-      // Sync local antar tab browser (instant)
-      window.addEventListener('storage', (ev) => {
-        if (!ev || ev.key !== LS_GRADES_KEY) return;
-        if (!isAuthed()) return;
-        if (DATA_MODE !== 'local') return;
-        loadData();
+        // Konfirmasi hapus
+        document.getElementById('confirm-delete-btn')?.addEventListener('click', confirmDelete);
+
+        // Set default tab
+        showTab('dashboard');
+
+        // Enable preview realtime
+        const quiz = document.getElementById('f-quiz');
+        if (quiz) updatePreview();
+      })
+      .catch((err) => {
+        console.error('[SiNilai] init error:', err);
       });
-
-      // Konfirmasi hapus
-      document.getElementById('confirm-delete-btn')?.addEventListener('click', confirmDelete);
-
-      // Set default tab agar konsisten setelah login
-      showTab('dashboard');
-
-      // Enable preview realtime (optional)
-      const quiz = document.getElementById('f-quiz');
-      if (quiz) updatePreview();
-    })
-    .catch((err) => {
-      console.error('[SiNilai] init error:', err);
-      const errEl = document.getElementById('login-error');
-      if (errEl) {
-        errEl.textContent = 'Terjadi error saat inisialisasi aplikasi. Buka console untuk detail.';
-        errEl.style.display = 'block';
-      }
-    });
+  } else {
+    // Belum login: setup event listener untuk setelah login
+    document.getElementById('confirm-delete-btn')?.addEventListener('click', confirmDelete);
+  }
 });
 
 
@@ -386,7 +383,7 @@ function updateBar(id, val) {
 }
 
 // ── SUBMIT FORM ────────────────────────────────
-function submitGrade(e) {
+async function submitGrade(e) {
   if (e?.preventDefault) e.preventDefault();
   // Supaya dashboard selalu langsung update, kunci urutan refresh UI di akhir
 
