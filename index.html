@@ -68,18 +68,6 @@
 
   <!-- ===================== SIDEBAR ===================== -->
   <aside class="sidebar" id="sidebar">
-    <!-- Konfigurasi Google Sheets (hidden, akses via Dev/F12 atau link) -->
-    <style>
-      /* Tidak tampil di dashboard sesuai request */
-      #api-setup { display: none; }
-    </style>
-    <div id="api-setup">
-      <div class="url-input-row">
-        <input id="api-url-input" type="text" placeholder="Tempel URL Apps Script (https://script.google.com/macros/s/.../exec)" />
-        <button type="button" class="btn-outline" onclick="saveApiUrl()">Simpan URL</button>
-      </div>
-      <div id="connection-status" class="conn-status">—</div>
-    </div>
     <div class="sidebar-logo">
       <div class="logo-iteba" aria-hidden="true">
         <img
@@ -107,8 +95,16 @@
         <svg viewBox="0 0 24 24" fill="none"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2"/></svg>
         Profil Mahasiswa
       </button>
+      <button class="nav-item" onclick="showTab('pengaturan')" id="nav-pengaturan">
+        <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Pengaturan
+      </button>
 
     </nav>
+    <div style="padding: 10px 16px 0;">
+      <div id="mode-badge" class="mode-badge mode-badge-local">💾 Lokal</div>
+      <div id="mode-desc" style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;">Data tersimpan di browser</div>
+    </div>
 
     <div class="sidebar-footer">
       <div class="theme-toggle" onclick="toggleTheme()" title="Ganti tema">
@@ -360,6 +356,7 @@
               </div>
             </div>
 
+            <div id="save-status" style="display:none;padding:10px 14px;background:rgba(124,111,247,0.12);border-radius:10px;color:var(--primary-light);font-size:0.88rem;margin-bottom:12px;"></div>
             <div class="form-actions">
               <button type="button" class="btn-outline" onclick="resetForm()">Reset Form</button>
               <button type="submit" class="btn-primary" id="submit-btn">
@@ -555,6 +552,87 @@
         <p>Masukkan NIM untuk melihat profil mahasiswa</p>
       </div>
 
+    </section>
+
+    <!-- ======== PENGATURAN TAB ======== -->
+    <section class="tab-section" id="tab-pengaturan">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Pengaturan</h1>
+          <p class="page-subtitle">Kelola sumber data dan koneksi Google Sheets</p>
+        </div>
+      </div>
+
+      <!-- Status Mode Aktif -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header">
+          <h2 class="card-title">Status Penyimpanan Data</h2>
+          <div id="mode-badge" style="display:none"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:4px 0 12px;">
+          <div style="flex:1;min-width:200px">
+            <div style="font-size:1.1rem;font-weight:700;color:var(--text-primary);margin-bottom:4px;" id="mode-desc-big">Memuat…</div>
+            <div style="font-size:0.85rem;color:var(--text-secondary);">Ganti mode di bawah untuk beralih antara penyimpanan lokal dan Google Sheets.</div>
+          </div>
+          <button type="button" class="btn-outline" onclick="switchToLocal()" style="white-space:nowrap">
+            💾 Gunakan Mode Lokal
+          </button>
+        </div>
+        <div id="connection-status" class="conn-status" style="margin-top:8px">—</div>
+      </div>
+
+      <!-- Konfigurasi Google Sheets -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header">
+          <h2 class="card-title">☁️ Hubungkan Google Sheets</h2>
+        </div>
+        <p style="font-size:0.88rem;color:var(--text-secondary);margin-bottom:16px;line-height:1.6">
+          Masukkan URL Web App dari Google Apps Script yang sudah di-deploy. Pastikan deployment menggunakan akses <strong>"Anyone"</strong> (siapa saja).
+        </p>
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+          <input
+            id="api-url-input"
+            type="url"
+            placeholder="https://script.google.com/macros/s/…/exec"
+            style="flex:1;min-width:280px;padding:12px 14px;background:var(--surface-2);border:1.5px solid var(--border);border-radius:10px;color:var(--text-primary);font-size:0.9rem;"
+          />
+          <button type="button" class="btn-primary" id="save-url-btn" onclick="saveApiUrl()">
+            <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M5 12l5 5L20 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+            Hubungkan
+          </button>
+        </div>
+
+        <details style="margin-top:16px">
+          <summary style="cursor:pointer;font-size:0.88rem;color:var(--primary-light);font-weight:600">📋 Cara mendapatkan URL Apps Script</summary>
+          <div style="margin-top:12px;font-size:0.85rem;color:var(--text-secondary);line-height:1.8">
+            <ol style="padding-left:18px">
+              <li>Buka <strong>Google Spreadsheet</strong> baru atau yang sudah ada</li>
+              <li>Klik <strong>Extensions → Apps Script</strong></li>
+              <li>Hapus kode default, paste kode Apps Script yang sesuai</li>
+              <li>Klik <strong>Deploy → New deployment</strong></li>
+              <li>Pilih Type: <strong>Web app</strong></li>
+              <li>Execute as: <strong>Me</strong>, Who has access: <strong>Anyone</strong></li>
+              <li>Klik <strong>Deploy</strong>, salin URL yang muncul</li>
+              <li>Tempel URL di kolom di atas, klik <strong>Hubungkan</strong></li>
+            </ol>
+          </div>
+        </details>
+      </div>
+
+      <!-- Migrasi Data -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">🔄 Migrasi Data Lokal ke Google Sheets</h2>
+        </div>
+        <p style="font-size:0.88rem;color:var(--text-secondary);margin-bottom:16px;line-height:1.6">
+          Jika Anda sudah punya data di penyimpanan lokal dan ingin memindahkannya ke Google Sheets, klik tombol di bawah. <strong>Pastikan sudah terhubung ke Google Sheets terlebih dahulu.</strong>
+        </p>
+        <button type="button" class="btn-primary" id="migrate-btn" onclick="migrateLocalToSheets()">
+          <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M4 4v5h5M20 20v-5h-5M4 9a8 8 0 0114.93-3M20 15a8 8 0 01-14.93 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          Migrasi Data Lokal → Sheets
+        </button>
+      </div>
     </section>
 
 

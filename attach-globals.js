@@ -45,6 +45,9 @@ window.selectAutoMahasiswa = selectAutoMahasiswa;
 window.selectAutoMK = selectAutoMK;
 window.selectAutoDosen = selectAutoDosen;
 
-// API Setup
+// API Setup & Mode
 window.saveApiUrl = saveApiUrl;
+window.switchToLocal = switchToLocal;
+window.migrateLocalToSheets = migrateLocalToSheets;
+window.updateDataModeUI = updateDataModeUI;
 window.copyCode = copyCode;

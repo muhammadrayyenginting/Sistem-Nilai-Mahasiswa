@@ -1271,3 +1271,54 @@ body:not(.authed) .app-shell{ display: none; }
   display: inline-block;
 }
 
+/* ── Mode Badge (sidebar) ── */
+.mode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.73rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  transition: all 0.3s ease;
+}
+.mode-badge-local {
+  background: rgba(62,207,207,0.12);
+  color: var(--secondary);
+  border: 1px solid rgba(62,207,207,0.25);
+}
+.mode-badge-sheets {
+  background: rgba(74,222,128,0.12);
+  color: var(--success);
+  border: 1px solid rgba(74,222,128,0.25);
+}
+
+/* ── Connection Status ── */
+.conn-status {
+  font-size: 0.85rem;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  transition: all 0.3s ease;
+}
+.conn-status.conn-ok {
+  background: rgba(74,222,128,0.08);
+  color: var(--success);
+  border-color: rgba(74,222,128,0.25);
+}
+.conn-status.conn-err {
+  background: rgba(248,113,113,0.08);
+  color: var(--danger);
+  border-color: rgba(248,113,113,0.25);
+}
+
+/* ── Settings Tab Overrides ── */
+#tab-pengaturan .card { padding: 24px; }
+#tab-pengaturan details summary::-webkit-details-marker { color: var(--primary-light); }
+:root { --surface-2: rgba(255,255,255,0.05); }
+body.light-theme { --surface-2: rgba(255,255,255,0.85); }
+
+
