@@ -530,6 +530,14 @@ async function submitGrade(e) {
 
     resetForm();
 
+    // ─── LANGKAH 6: Paksa refresh UI sekali lagi dari localStorage ───
+    // Untuk memastikan dashboard, tabel entri terbaru, dan riwayat terupdate
+    const freshRows = loadFromLocal();
+    allData = freshRows.map(mapRowToData);
+    filteredData = [...allData];
+    renderDashboard();
+    renderMainTable();
+
   } catch (err) {
     toast('❌ Gagal menyimpan: ' + err.message, 'error');
   } finally {
@@ -779,7 +787,7 @@ function renderDashboard() {
     animateStatValue(statTertinggi, maxNilai, true);
   } else {
     const statTertinggi = document.getElementById('stat-tertinggi');
-    if (statTertinggi) statTertinggi.textContent = '–';
+    if (statTertinggi) statTertinggi.textContent = '0';
   }
 
   // Recent table (5 terbaru)
@@ -895,6 +903,7 @@ async function confirmDelete() {
       filteredData = [...allData];
       renderDashboard();
       renderMainTable();
+      notifyDataChanged();
     } else {
       if (!API_URL) throw new Error('API URL belum terkonfigurasi');
       await postToSheets({ action: 'deleteGrade', id: pendingDeleteId });

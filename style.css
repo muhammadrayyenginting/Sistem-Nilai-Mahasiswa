@@ -1173,11 +1173,11 @@ input[type=number] { -moz-appearance: textfield; }
   font-weight: 800;
 }
 
-/* Shell auth state (dinonaktifkan: langsung tampil tanpa login) */
-.app-shell{ display: block; }
+/* Shell auth state */
+.app-shell{ display: none; }
 body.authed .app-shell{ display: block; }
 body.authed #login-section{ display:none; }
-body:not(.authed) .app-shell{ display:block; }
+body:not(.authed) .app-shell{ display: none; }
 
 
 .logout-btn{
