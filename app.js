@@ -45,18 +45,36 @@ if (!localStorage.getItem(LS_GRADES_KEY)) {
 let broadcastChannel = null;
 try {
   broadcastChannel = new BroadcastChannel('sinilai_realtime_sync');
-  broadcastChannel.onmessage = (event) => {
-    if (!isAuthed()) return;
-    const msg = event.data;
-    if (msg && msg.type === 'DATA_CHANGED') {
-      // Reload data dari localStorage dan re-render
+
+broadcastChannel.onmessage = async (event) => {
+
+  if (!isAuthed()) return;
+
+  const msg = event.data;
+
+  if (msg && msg.type === 'DATA_CHANGED') {
+
+    if (DATA_MODE === "sheets") {
+
+      await loadData();
+
+    } else {
+
       const rows = loadFromLocal();
+
       allData = rows.map(mapRowToData);
+
       filteredData = [...allData];
+
       renderDashboard();
+
       renderMainTable();
+
     }
-  };
+
+  }
+
+};
 } catch (_) {
   // BroadcastChannel tidak tersedia di browser lama, fallback ke storage event
 }
